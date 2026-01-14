@@ -312,6 +312,11 @@
             line-height: 1.5;
         }
 
+        /* Success State */
+        .success-content {
+            display: none;
+        }
+
         /* Mobile Responsive */
         @media (max-width: 480px) {
             .header {
@@ -398,70 +403,88 @@
         
         <!-- Content -->
         <div class="content">
-            <div class="success-icon">
-                <div class="checkmark">✓</div>
+            <!-- Loading State -->
+            <div id="loading-state">
+                <div class="success-icon" style="background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);">
+                    <div class="checkmark">⏳</div>
+                </div>
+                
+                <h1 class="title" id="main-title">Verifying Your Email...</h1>
+                
+                <p class="message" id="main-message">
+                    Please wait while we verify your email address with our secure servers.
+                </p>
+                
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Connecting to Supabase...</span>
+                </div>
             </div>
             
-            <h1 class="title" id="main-title">Verifying Your Email...</h1>
-            
-            <p class="message" id="main-message">
-                Please wait while we verify your email address.
-            </p>
-            
-            <!-- Loading -->
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <span>Processing verification...</span>
-            </div>
-            
-            <!-- Error Box -->
-            <div class="error-box" id="error-box">
-                <div class="error-title">Manual Verification Required</div>
+            <!-- Error State -->
+            <div class="error-box" id="error-state">
+                <div class="error-title">Verification Failed</div>
                 <div class="error-text" id="error-text"></div>
                 <div style="margin-top: 15px; font-size: 14px; color: #666;">
-                    <p>To verify your email:</p>
-                    <p>1. Click this link: <a href="#" id="verification-link" style="color: #FF9800; word-break: break-all; text-decoration: underline;"></a></p>
-                    <p>2. Complete verification on Supabase's secure page</p>
-                    <p>3. Return here after verification</p>
+                    <p><strong>Please try:</strong></p>
+                    <p>1. Clicking the email link again</p>
+                    <p>2. Using a different browser</p>
+                    <p>3. Contacting support if issue persists</p>
                 </div>
+                <button class="app-button" style="margin-top: 15px; background: #F44336;" onclick="retryVerification()">
+                    Try Again
+                </button>
             </div>
             
-            <!-- Steps (hidden initially) -->
-            <div class="steps" id="steps" style="display: none;">
-                <div class="steps-title">Next Steps</div>
-                
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-text">Return to the NAVO Ride mobile app</div>
+            <!-- Success State -->
+            <div id="success-state" class="success-content">
+                <div class="success-icon">
+                    <div class="checkmark">✓</div>
                 </div>
                 
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-text">Login with your email and password</div>
+                <h1 class="title">Email Verified Successfully!</h1>
+                
+                <p class="message">
+                    Your NAVO Ride account has been activated and is ready to use.
+                    Welcome to our community of trusted riders and drivers.
+                </p>
+                
+                <!-- Steps -->
+                <div class="steps">
+                    <div class="steps-title">Next Steps</div>
+                    
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-text">Return to the NAVO Ride mobile app</div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-text">Login with your email and password</div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-text">Start booking or offering rides immediately</div>
+                    </div>
                 </div>
                 
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-text">Start booking or offering rides immediately</div>
+                <!-- Status -->
+                <div class="status-box">
+                    <div class="status-title">Account Status</div>
+                    <div class="status-text">✓ Email verified • ✓ Account active • ✓ Ready to ride</div>
                 </div>
-            </div>
-            
-            <!-- Status (hidden initially) -->
-            <div class="status-box" id="status-box" style="display: none;">
-                <div class="status-title">Account Status</div>
-                <div class="status-text" id="status-text">✓ Email verified • ✓ Account active • ✓ Ready to ride</div>
             </div>
         </div>
         
-        <!-- Footer (hidden initially) -->
-        <div class="footer" id="footer" style="display: none;">
-            <button class="app-button" onclick="openApp()">
+        <!-- Footer -->
+        <div class="footer" id="footer">
+            <button class="app-button" onclick="openApp()" id="open-app-btn" style="display: none;">
                 Open NAVO Ride App
             </button>
             
-            <div class="info-text">
-                If the app doesn't open automatically,<br>
-                please return to it manually and login.
+            <div class="info-text" id="info-text">
+                If verification is successful, you'll be able to open the app.
             </div>
             
             <div class="security-badge">
@@ -471,26 +494,24 @@
     </div>
     
     <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://lwepbrvqvbrbpjylrjsx.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3ZXBicnZxdmJyYnBqeWxyanN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0ODA5OTcsImV4cCI6MjA4MzA1Njk5N30.BtZEH_qZkAmOnhABZ6JJJ04OVMVDfqcdaBeGZTPXhsk';
+        
+        // DOM Elements
+        const loadingState = document.getElementById('loading-state');
+        const errorState = document.getElementById('error-state');
+        const successState = document.getElementById('success-state');
+        const mainTitle = document.getElementById('main-title');
+        const mainMessage = document.getElementById('main-message');
+        const errorText = document.getElementById('error-text');
+        const openAppBtn = document.getElementById('open-app-btn');
+        const infoText = document.getElementById('info-text');
+        
         // Extract token from URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const type = urlParams.get('type') || 'signup';
-        
-        // DOM Elements
-        const mainTitle = document.getElementById('main-title');
-        const mainMessage = document.getElementById('main-message');
-        const loading = document.getElementById('loading');
-        const errorBox = document.getElementById('error-box');
-        const errorText = document.getElementById('error-text');
-        const steps = document.getElementById('steps');
-        const statusBox = document.getElementById('status-box');
-        const footer = document.getElementById('footer');
-        const verificationLink = document.getElementById('verification-link');
-        
-        // Create the Supabase verification link
-        const supabaseVerificationLink = `https://lwepbrvqvbrbpjylrjsx.supabase.co/auth/v1/verify?token=${token}&type=${type}`;
-        verificationLink.href = supabaseVerificationLink;
-        verificationLink.textContent = 'Verify with Supabase';
         
         // Function to verify with Supabase
         async function verifyEmail() {
@@ -502,137 +523,132 @@
             try {
                 console.log('Starting verification with token:', token.substring(0, 10) + '...');
                 
-                // Try to verify with Supabase
-                const response = await fetch(supabaseVerificationLink, {
-                    method: 'GET',
-                    mode: 'no-cors' // Use no-cors to avoid CORS issues
+                // Make POST request to Supabase verify endpoint
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/verify`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({
+                        token_hash: token,
+                        type: type
+                    })
                 });
                 
-                console.log('Verification attempt completed');
+                const data = await response.json();
+                console.log('Supabase response:', data);
                 
-                // Since we use no-cors, we can't check response status
-                // But we can assume it worked if we got here
-                showSuccess('Verification completed successfully!');
+                if (!response.ok) {
+                    throw new Error(data.error?.message || `HTTP ${response.status}: Verification failed`);
+                }
+                
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+                
+                // Success - user is now verified in Supabase
+                console.log('✅ User successfully verified in Supabase!');
+                showSuccess();
                 
             } catch (error) {
                 console.error('Verification error:', error);
-                showManualVerification();
+                
+                // Try alternative method if POST fails
+                if (error.message.includes('403') || error.message.includes('CORS')) {
+                    await tryAlternativeVerification();
+                } else {
+                    showError(error.message || 'Failed to verify email. Please try again.');
+                }
+            }
+        }
+        
+        // Alternative verification method (GET request)
+        async function tryAlternativeVerification() {
+            try {
+                console.log('Trying alternative verification method...');
+                
+                // Use GET request instead (some Supabase setups allow this)
+                const response = await fetch(`${SUPABASE_URL}/auth/v1/verify?token=${token}&type=${type}`, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY
+                    }
+                });
+                
+                if (response.ok || response.redirected) {
+                    console.log('✅ Alternative verification successful!');
+                    showSuccess();
+                } else {
+                    throw new Error('Alternative method also failed');
+                }
+                
+            } catch (altError) {
+                console.error('Alternative verification failed:', altError);
+                showError('Could not verify automatically. Please contact support.');
             }
         }
         
         // Function to show success state
-        function showSuccess(message) {
-            // Hide loading and error
-            loading.style.display = 'none';
-            errorBox.style.display = 'none';
+        function showSuccess() {
+            // Hide loading and error states
+            loadingState.style.display = 'none';
+            errorState.style.display = 'none';
             
-            // Update UI
-            mainTitle.textContent = 'Email Verified Successfully!';
-            mainMessage.textContent = message || 'Your NAVO Ride account has been activated and is ready to use.';
+            // Show success state
+            successState.style.display = 'block';
+            openAppBtn.style.display = 'inline-flex';
+            infoText.textContent = 'You can now open the NAVO Ride app and login.';
             
-            // Show success elements
-            steps.style.display = 'block';
-            statusBox.style.display = 'block';
-            footer.style.display = 'block';
-            
-            // Update the verification link text
-            verificationLink.textContent = '✓ Already Verified';
-            verificationLink.style.color = '#4CAF50';
-            verificationLink.style.pointerEvents = 'none';
-            
-            // Auto-try to open app after 3 seconds
+            // Try to open app automatically after 3 seconds
             setTimeout(openApp, 3000);
-        }
-        
-        // Function to show manual verification
-        function showManualVerification() {
-            // Hide loading
-            loading.style.display = 'none';
-            
-            // Update UI
-            mainTitle.textContent = 'Click to Verify';
-            mainMessage.textContent = 'Please click the link below to complete verification:';
-            errorText.textContent = 'For security, verification must be completed on Supabase\'s secure page.';
-            
-            // Show error box with manual verification link
-            errorBox.style.display = 'block';
-            
-            // Also show steps for what to do after verification
-            steps.style.display = 'block';
-            footer.style.display = 'block';
         }
         
         // Function to show error state
         function showError(message) {
-            // Hide loading
-            loading.style.display = 'none';
+            // Hide loading state
+            loadingState.style.display = 'none';
             
-            // Update UI
-            mainTitle.textContent = 'Verification Required';
-            mainMessage.textContent = 'Please complete verification to activate your account:';
+            // Show error state
+            errorState.style.display = 'block';
             errorText.textContent = message;
-            
-            // Show error box with instructions
-            errorBox.style.display = 'block';
-            
-            // Also show steps for manual verification
-            steps.style.display = 'block';
-            footer.style.display = 'block';
+            openAppBtn.style.display = 'none';
+            infoText.textContent = 'Please resolve the verification issue first.';
+        }
+        
+        // Function to retry verification
+        function retryVerification() {
+            errorState.style.display = 'none';
+            loadingState.style.display = 'block';
+            mainTitle.textContent = 'Retrying Verification...';
+            mainMessage.textContent = 'Please wait while we try again.';
+            verifyEmail();
         }
         
         // Function to try opening the app
         function openApp() {
-            // Try to open the NAVO Ride mobile app using deep link
-            // This is not a website URL, it's a special app link
+            // Try to open the NAVO Ride mobile app
             window.location.href = 'navoride://login?verified=true';
             
-            // If the app doesn't open (deep link fails), show instructions
+            // If app doesn't open, update instructions
             setTimeout(() => {
-                // Check if we're still on the same page
-                if (window.location.href.includes('verify.html')) {
-                    document.querySelector('.info-text').innerHTML = 
-                        'Please open the NAVO Ride app manually from your home screen and login.';
-                }
+                infoText.innerHTML = 'Please open the NAVO Ride app manually from your home screen and login.';
             }, 1000);
         }
         
-        // Function to handle verification link click
-        verificationLink.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Update UI to show we're opening verification
-            mainTitle.textContent = 'Opening Verification Page...';
-            mainMessage.textContent = 'You will be redirected to Supabase\'s secure verification page.';
-            loading.style.display = 'flex';
-            errorBox.style.display = 'none';
-            
-            // Open the Supabase verification in a new tab
-            window.open(supabaseVerificationLink, '_blank');
-            
-            // After 3 seconds, check if user might have completed verification
-            setTimeout(() => {
-                mainTitle.textContent = 'Verification in Progress';
-                mainMessage.textContent = 'Please complete verification in the opened tab, then return here.';
-                loading.querySelector('span').textContent = 'Waiting for verification...';
-                
-                // Show success after 10 seconds (assuming they verified)
-                setTimeout(() => {
-                    showSuccess('Verification should now be complete. You can login to the app.');
-                }, 10000);
-            }, 3000);
-        });
-        
-        // Start verification on page load
+        // Start verification when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if token exists
             if (!token) {
-                showError('Invalid verification link. Please use the link from your email.');
+                showError('Invalid verification link. Please use the link sent to your email.');
                 return;
             }
             
-            // Start verification process
             verifyEmail();
         });
+        
+        // Add event listener for open app button
+        openAppBtn.addEventListener('click', openApp);
     </script>
 </body>
 </html>
