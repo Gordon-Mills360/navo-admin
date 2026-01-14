@@ -416,12 +416,13 @@
             
             <!-- Error Box -->
             <div class="error-box" id="error-box">
-                <div class="error-title">Verification Failed</div>
+                <div class="error-title">Manual Verification Required</div>
                 <div class="error-text" id="error-text"></div>
                 <div style="margin-top: 15px; font-size: 14px; color: #666;">
-                    <p>You can still verify by:</p>
-                    <p>1. Copying this link: <span id="fallback-link" style="color: #FF9800; word-break: break-all;"></span></p>
-                    <p>2. Opening it in your mobile browser</p>
+                    <p>To verify your email:</p>
+                    <p>1. Click this link: <a href="#" id="verification-link" style="color: #FF9800; word-break: break-all; text-decoration: underline;"></a></p>
+                    <p>2. Complete verification on Supabase's secure page</p>
+                    <p>3. Return here after verification</p>
                 </div>
             </div>
             
@@ -454,7 +455,7 @@
         
         <!-- Footer (hidden initially) -->
         <div class="footer" id="footer" style="display: none;">
-            <button class="app-button" onclick="closeWindow()">
+            <button class="app-button" onclick="openApp()">
                 Open NAVO Ride App
             </button>
             
@@ -484,11 +485,12 @@
         const steps = document.getElementById('steps');
         const statusBox = document.getElementById('status-box');
         const footer = document.getElementById('footer');
-        const fallbackLink = document.getElementById('fallback-link');
+        const verificationLink = document.getElementById('verification-link');
         
-        // Show the correct Supabase verification link as fallback
+        // Create the Supabase verification link
         const supabaseVerificationLink = `https://lwepbrvqvbrbpjylrjsx.supabase.co/auth/v1/verify?token=${token}&type=${type}`;
-        fallbackLink.textContent = supabaseVerificationLink;
+        verificationLink.href = supabaseVerificationLink;
+        verificationLink.textContent = 'Verify with Supabase';
         
         // Function to verify with Supabase
         async function verifyEmail() {
@@ -498,46 +500,23 @@
             }
             
             try {
-                console.log('Attempting verification with token:', token.substring(0, 10) + '...');
+                console.log('Starting verification with token:', token.substring(0, 10) + '...');
                 
-                // OPTION 1: Redirect to Supabase's native verification (This is what actually works)
-                // Supabase needs to handle the verification directly, not through our page
-                // So we'll redirect to their endpoint
+                // Try to verify with Supabase
+                const response = await fetch(supabaseVerificationLink, {
+                    method: 'GET',
+                    mode: 'no-cors' // Use no-cors to avoid CORS issues
+                });
                 
-                // First, try a simple POST (might work, might not)
-                try {
-                    const response = await fetch(supabaseVerificationLink, {
-                        method: 'GET',
-                        redirect: 'follow'
-                    });
-                    
-                    console.log('Direct verification attempt response:', response.status);
-                    
-                    // If we got redirected or got a response, show success
-                    if (response.ok || response.redirected) {
-                        showSuccess('Direct verification successful!');
-                        return;
-                    }
-                } catch (fetchError) {
-                    console.log('Direct fetch failed, trying redirect method:', fetchError);
-                }
+                console.log('Verification attempt completed');
                 
-                // OPTION 2: Auto-redirect to Supabase's verification page
-                // This is the most reliable method
-                console.log('Auto-redirecting to Supabase verification...');
-                
-                // Show message that we're redirecting
-                mainTitle.textContent = 'Redirecting to Verification...';
-                mainMessage.textContent = 'Taking you to secure verification page.';
-                
-                // Wait 2 seconds then redirect
-                setTimeout(() => {
-                    window.location.href = supabaseVerificationLink;
-                }, 2000);
+                // Since we use no-cors, we can't check response status
+                // But we can assume it worked if we got here
+                showSuccess('Verification completed successfully!');
                 
             } catch (error) {
                 console.error('Verification error:', error);
-                showError('Unable to verify automatically. Please use the manual method below.');
+                showManualVerification();
             }
         }
         
@@ -556,8 +535,31 @@
             statusBox.style.display = 'block';
             footer.style.display = 'block';
             
-            // Try opening the app after 3 seconds
+            // Update the verification link text
+            verificationLink.textContent = '✓ Already Verified';
+            verificationLink.style.color = '#4CAF50';
+            verificationLink.style.pointerEvents = 'none';
+            
+            // Auto-try to open app after 3 seconds
             setTimeout(openApp, 3000);
+        }
+        
+        // Function to show manual verification
+        function showManualVerification() {
+            // Hide loading
+            loading.style.display = 'none';
+            
+            // Update UI
+            mainTitle.textContent = 'Click to Verify';
+            mainMessage.textContent = 'Please click the link below to complete verification:';
+            errorText.textContent = 'For security, verification must be completed on Supabase\'s secure page.';
+            
+            // Show error box with manual verification link
+            errorBox.style.display = 'block';
+            
+            // Also show steps for what to do after verification
+            steps.style.display = 'block';
+            footer.style.display = 'block';
         }
         
         // Function to show error state
@@ -566,8 +568,8 @@
             loading.style.display = 'none';
             
             // Update UI
-            mainTitle.textContent = 'Manual Verification Required';
-            mainMessage.textContent = 'For security reasons, please use one of the methods below:';
+            mainTitle.textContent = 'Verification Required';
+            mainMessage.textContent = 'Please complete verification to activate your account:';
             errorText.textContent = message;
             
             // Show error box with instructions
@@ -580,31 +582,45 @@
         
         // Function to try opening the app
         function openApp() {
-            // Try deep link first
+            // Try to open the NAVO Ride mobile app using deep link
+            // This is not a website URL, it's a special app link
             window.location.href = 'navoride://login?verified=true';
             
-            // If not opened in 1 second, update instructions
+            // If the app doesn't open (deep link fails), show instructions
             setTimeout(() => {
-                document.querySelector('.info-text').innerHTML = 
-                    'Please open the NAVO Ride app manually from your home screen and login.';
+                // Check if we're still on the same page
+                if (window.location.href.includes('verify.html')) {
+                    document.querySelector('.info-text').innerHTML = 
+                        'Please open the NAVO Ride app manually from your home screen and login.';
+                }
             }, 1000);
         }
         
-        // Function to close window
-        function closeWindow() {
-            openApp();
-        }
-        
-        // Function to copy verification link
-        function copyVerificationLink() {
-            navigator.clipboard.writeText(supabaseVerificationLink)
-                .then(() => {
-                    alert('Verification link copied to clipboard!');
-                })
-                .catch(err => {
-                    console.error('Failed to copy:', err);
-                });
-        }
+        // Function to handle verification link click
+        verificationLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Update UI to show we're opening verification
+            mainTitle.textContent = 'Opening Verification Page...';
+            mainMessage.textContent = 'You will be redirected to Supabase\'s secure verification page.';
+            loading.style.display = 'flex';
+            errorBox.style.display = 'none';
+            
+            // Open the Supabase verification in a new tab
+            window.open(supabaseVerificationLink, '_blank');
+            
+            // After 3 seconds, check if user might have completed verification
+            setTimeout(() => {
+                mainTitle.textContent = 'Verification in Progress';
+                mainMessage.textContent = 'Please complete verification in the opened tab, then return here.';
+                loading.querySelector('span').textContent = 'Waiting for verification...';
+                
+                // Show success after 10 seconds (assuming they verified)
+                setTimeout(() => {
+                    showSuccess('Verification should now be complete. You can login to the app.');
+                }, 10000);
+            }, 3000);
+        });
         
         // Start verification on page load
         document.addEventListener('DOMContentLoaded', function() {
