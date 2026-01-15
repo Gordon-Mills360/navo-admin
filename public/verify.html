@@ -42,7 +42,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Header */
         .header {
             background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
             padding: 40px 30px;
@@ -65,7 +64,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Content */
         .content {
             padding: 50px 40px;
             text-align: center;
@@ -113,7 +111,6 @@
             margin-right: auto;
         }
 
-        /* Steps */
         .steps {
             background: #FFF3E0;
             border-radius: 16px;
@@ -167,7 +164,6 @@
             line-height: 1.5;
         }
 
-        /* Status Box */
         .status-box {
             background: #E8F5E9;
             border-radius: 12px;
@@ -196,7 +192,6 @@
             line-height: 1.5;
         }
 
-        /* Footer */
         .footer {
             padding: 30px 40px;
             text-align: center;
@@ -273,7 +268,6 @@
             content: "🔒";
         }
 
-        /* Loading State */
         .loading {
             display: flex;
             align-items: center;
@@ -298,7 +292,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* Error State */
         .error-box {
             background: #FFEBEE;
             border-radius: 12px;
@@ -329,7 +322,6 @@
             margin-bottom: 15px;
         }
 
-        /* Expired Link Box */
         .expired-box {
             background: #FFF3E0;
             border-radius: 12px;
@@ -376,7 +368,6 @@
             opacity: 0.9;
         }
 
-        /* Mobile Responsive */
         @media (max-width: 480px) {
             .header {
                 padding: 30px 20px;
@@ -407,7 +398,6 @@
             }
         }
 
-        /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             body {
                 background: linear-gradient(135deg, #121212 0%, #1e1e1e 100%);
@@ -463,13 +453,11 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
             <div class="logo">NAVO</div>
             <div class="tagline">Your Journey, Elevated</div>
         </div>
         
-        <!-- Content -->
         <div class="content">
             <div class="success-icon">
                 <div class="checkmark">✓</div>
@@ -481,33 +469,25 @@
                 Please wait while we verify your email address.
             </p>
             
-            <!-- Loading -->
             <div class="loading" id="loading">
                 <div class="spinner"></div>
                 <span id="loading-text">Processing verification...</span>
             </div>
             
-            <!-- Expired Link Box -->
             <div class="expired-box" id="expired-box">
                 <div class="expired-title" id="expired-title">Verification Link Expired</div>
                 <div class="expired-text" id="expired-text">
                     This verification link has expired. Links are valid for 24 hours.
                 </div>
-                <div class="action-buttons" id="expired-actions">
-                    <!-- Actions will be added dynamically -->
-                </div>
+                <div class="action-buttons" id="expired-actions"></div>
             </div>
             
-            <!-- Error Box -->
             <div class="error-box" id="error-box">
                 <div class="error-title" id="error-title">Verification Error</div>
                 <div class="error-text" id="error-text"></div>
-                <div class="action-buttons" id="error-actions">
-                    <!-- Actions will be added dynamically -->
-                </div>
+                <div class="action-buttons" id="error-actions"></div>
             </div>
             
-            <!-- Steps (hidden initially) -->
             <div class="steps" id="steps" style="display: none;">
                 <div class="steps-title">Next Steps</div>
                 
@@ -527,14 +507,12 @@
                 </div>
             </div>
             
-            <!-- Status (hidden initially) -->
             <div class="status-box" id="status-box" style="display: none;">
                 <div class="status-title">Account Status</div>
                 <div class="status-text" id="status-text">✓ Email verified • ✓ Account active • ✓ Ready to ride</div>
             </div>
         </div>
         
-        <!-- Footer (hidden initially) -->
         <div class="footer" id="footer" style="display: none;">
             <button class="app-button" id="open-app-button" onclick="openApp()">
                 Open NAVO Ride App
@@ -556,17 +534,14 @@
     </div>
     
     <script>
-        // State management
         let verificationInProgress = false;
         let verificationAttempted = false;
         let verificationResult = null;
         
-        // Extract token from URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const type = urlParams.get('type') || 'signup';
         
-        // DOM Elements
         const mainTitle = document.getElementById('main-title');
         const mainMessage = document.getElementById('main-message');
         const loading = document.getElementById('loading');
@@ -587,22 +562,16 @@
         const openAppButton = document.getElementById('open-app-button');
         const retryButton = document.getElementById('retry-button');
         
-        // Edge function URL - CORRECT URL
         const edgeFunctionUrl = 'https://lwepbrvqvbrbpjylrjsx.supabase.co/functions/v1/send-verification-email';
-        
-        // Supabase Anon Key - REQUIRED for calling edge functions
         const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3ZXBicnZxdmJyYnBqeWxyanN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0ODA5OTcsImV4cCI6MjA4MzA1Njk5N30.BtZEH_qZkAmOnhABZ6JJJ04OVMVDfqcdaBeGZTPXhsk';
         
-        // Function to verify with edge function
         async function verifyEmail() {
-            // Prevent multiple simultaneous verification attempts
             if (verificationInProgress) {
-                console.log('⚠️ Verification already in progress');
+                console.log('Verification already in progress');
                 return;
             }
             
             if (verificationAttempted) {
-                console.log('⚠️ Verification already attempted');
                 showRetryOption();
                 return;
             }
@@ -610,7 +579,6 @@
             verificationInProgress = true;
             verificationAttempted = true;
             
-            // Disable retry button during verification
             retryButton.disabled = true;
             retryButton.style.display = 'none';
             
@@ -621,16 +589,14 @@
             }
             
             try {
-                console.log('🚀 Starting verification with token length:', token.length);
+                console.log('Starting verification with token length:', token.length);
                 loadingText.textContent = 'Connecting to verification service...';
                 
-                // Call edge function for verification WITH CORRECT HEADERS
                 const verifyUrl = `${edgeFunctionUrl}?token=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}`;
-                console.log('📞 Calling verification URL');
+                console.log('Calling verification URL:', verifyUrl);
                 
                 loadingText.textContent = 'Verifying your email...';
                 
-                // FIXED: Added required headers with anon key
                 const response = await fetch(verifyUrl, {
                     method: 'GET',
                     headers: {
@@ -643,36 +609,32 @@
                 loadingText.textContent = 'Processing verification result...';
                 
                 const result = await response.json();
-                console.log('📊 Verification result:', result);
+                console.log('Verification result:', result);
                 
-                // CLEAR CHECK: response.ok && result.success && result.verified
                 if (response.ok && result.success && result.verified) {
-                    console.log('✅ Verification successful');
+                    console.log('Verification successful');
                     verificationResult = { success: true, data: result };
                     showSuccess('Your email has been verified and your account is active!');
                     
-                    // Store verification success in session storage
                     sessionStorage.setItem('navo_verification_success', 'true');
                     sessionStorage.setItem('navo_verification_token', token);
                     
                 } else if (result.error && result.error.includes('expired')) {
-                    console.log('⏰ Token expired');
+                    console.log('Token expired');
                     showExpiredLink(result.error);
                 } else {
-                    console.error('❌ Verification failed:', result.error);
+                    console.error('Verification failed:', result.error);
                     showManualVerification(result.error || 'Verification failed. Please try again.');
                 }
                 
             } catch (error) {
-                console.error('🔥 Verification error:', error);
+                console.error('Verification error:', error);
                 showManualVerification('Network error. Please check your connection and try again.');
                 
             } finally {
-                // Always reset the verification flag
                 verificationInProgress = false;
                 retryButton.disabled = false;
                 
-                // Show retry button if verification failed
                 if (!verificationResult || !verificationResult.success) {
                     setTimeout(() => {
                         retryButton.style.display = 'block';
@@ -681,45 +643,34 @@
             }
         }
         
-        // Function to show success state
         function showSuccess(message) {
-            // Hide loading and error boxes
             loading.style.display = 'none';
             expiredBox.style.display = 'none';
             errorBox.style.display = 'none';
             
-            // Update UI
             mainTitle.textContent = 'Email Verified Successfully!';
             mainMessage.textContent = message || 'Your NAVO Ride account has been activated and is ready to use.';
             
-            // Update status text
             statusText.innerHTML = '✓ Email verified • ✓ Account active • ✓ Ready to ride';
             
-            // Show success elements
             steps.style.display = 'block';
             statusBox.style.display = 'block';
             footer.style.display = 'block';
             retryButton.style.display = 'none';
             
-            // Auto-try to open app after 3 seconds
             setTimeout(openApp, 3000);
         }
         
-        // Function to show expired link
         function showExpiredLink(errorMessage = '') {
-            // Hide loading
             loading.style.display = 'none';
             errorBox.style.display = 'none';
             
-            // Update UI
             mainTitle.textContent = 'Link Expired';
             mainMessage.textContent = 'This verification link is no longer valid.';
             
-            // Update expired box
             expiredTitle.textContent = 'Verification Link Expired';
             expiredText.textContent = errorMessage || 'Verification links are valid for 24 hours. Please request a new verification email.';
             
-            // Clear and add action buttons
             expiredActions.innerHTML = '';
             
             const requestNewButton = document.createElement('button');
@@ -740,22 +691,17 @@
             };
             expiredActions.appendChild(loginButton);
             
-            // Show expired box
             expiredBox.style.display = 'block';
             
-            // Show footer with retry option
             footer.style.display = 'block';
             retryButton.style.display = 'block';
             retryButton.textContent = 'Try Again';
         }
         
-        // Function to show manual verification
         function showManualVerification(errorMessage = '') {
-            // Hide loading and expired box
             loading.style.display = 'none';
             expiredBox.style.display = 'none';
             
-            // Update UI
             if (errorMessage.includes('Invalid') || errorMessage.includes('invalid')) {
                 mainTitle.textContent = 'Invalid Link';
                 errorTitle.textContent = 'Invalid Verification Link';
@@ -770,7 +716,6 @@
             mainMessage.textContent = 'We could not verify your email automatically.';
             errorText.textContent = errorMessage || 'Please try logging into the app directly. If verification is still needed, it will prompt you in the app.';
             
-            // Clear and add action buttons
             errorActions.innerHTML = '';
             
             const retryButtonAction = document.createElement('button');
@@ -789,20 +734,16 @@
             };
             errorActions.appendChild(supportButton);
             
-            // Show error box
             errorBox.style.display = 'block';
             
-            // Update status text for manual verification
             statusText.innerHTML = '⏳ Verification pending • ⚠️ Manual action required';
             
-            // Show steps and footer
             steps.style.display = 'block';
             statusBox.style.display = 'block';
             footer.style.display = 'block';
             retryButton.style.display = 'block';
         }
         
-        // Function to show retry option
         function showRetryOption() {
             loading.style.display = 'none';
             retryButton.style.display = 'block';
@@ -812,51 +753,38 @@
             mainMessage.textContent = 'Click the button below to retry verification.';
         }
         
-        // Function to retry verification
         function retryVerification() {
-            // Reset state
             verificationAttempted = false;
             verificationResult = null;
             
-            // Clear any existing result from session storage
             sessionStorage.removeItem('navo_verification_success');
             
-            // Hide boxes and show loading
             expiredBox.style.display = 'none';
             errorBox.style.display = 'none';
             retryButton.style.display = 'none';
             loading.style.display = 'flex';
             
-            // Reset UI
             mainTitle.textContent = 'Retrying Verification...';
             mainMessage.textContent = 'Please wait while we try to verify your email again.';
             loadingText.textContent = 'Starting verification...';
             
-            // Start verification
             setTimeout(() => {
                 verifyEmail();
             }, 500);
         }
         
-        // Function to try opening the app
         function openApp() {
-            // Update button state
             openAppButton.disabled = true;
             openAppButton.textContent = 'Opening App...';
             
-            // Try to open the NAVO Ride mobile app using deep link
             window.location.href = 'navoride://login?verified=true';
             
-            // Fallback: If the app doesn't open, show instructions
             setTimeout(() => {
-                // Check if we're still on the same page
                 if (window.location.href.includes('verify.html')) {
                     openAppButton.textContent = 'Open NAVO Ride App';
                     openAppButton.disabled = false;
-                    infoText.innerHTML = 
-                        'Please open the NAVO Ride app manually from your home screen and login.<br>Or visit: <a href="https://navoride.com" style="color: #FF9800; text-decoration: underline;">navoride.com</a>';
+                    infoText.innerHTML = 'Please open the NAVO Ride app manually from your home screen and login.<br>Or visit: <a href="https://navoride.com" style="color: #FF9800; text-decoration: underline;">navoride.com</a>';
                     
-                    // Show web login option
                     const webLoginButton = document.createElement('button');
                     webLoginButton.className = 'app-button retry-button';
                     webLoginButton.style.background = 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)';
@@ -869,36 +797,30 @@
             }, 2000);
         }
         
-        // Start verification on page load
         document.addEventListener('DOMContentLoaded', function() {
-            // Check if token exists
             if (!token) {
-                showError('Invalid verification link. Please use the original email link.');
+                showError('Invalid verification link. Please use the link from your email.');
                 return;
             }
             
-            // Check if verification was already successful in this session
             const verificationSuccess = sessionStorage.getItem('navo_verification_success');
             const storedToken = sessionStorage.getItem('navo_verification_token');
             
             if (verificationSuccess === 'true' && storedToken === token) {
-                console.log('✅ Using cached verification result');
+                console.log('Using cached verification result');
                 showSuccess('Your email was already verified in this session.');
                 return;
             }
             
-            // Start verification process
             verifyEmail();
         });
         
-        // Handle page visibility changes
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible' && verificationInProgress) {
-                console.log('⚠️ Page became visible during verification');
+                console.log('Page became visible during verification');
             }
         });
         
-        // Prevent form resubmission on page refresh
         if (window.history.replaceState) {
             window.history.replaceState(null, null, window.location.href);
         }
