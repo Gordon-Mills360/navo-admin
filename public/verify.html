@@ -587,8 +587,11 @@
         const openAppButton = document.getElementById('open-app-button');
         const retryButton = document.getElementById('retry-button');
         
-        // Edge function URL for verification - REPLACE WITH YOUR ACTUAL EDGE FUNCTION URL
+        // Edge function URL - CORRECT URL
         const edgeFunctionUrl = 'https://lwepbrvqvbrbpjylrjsx.supabase.co/functions/v1/send-verification-email';
+        
+        // Supabase Anon Key - REQUIRED for calling edge functions
+        const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx3ZXBicnZxdmJyYnBqeWxyanN4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0ODA5OTcsImV4cCI6MjA4MzA1Njk5N30.BtZEH_qZkAmOnhABZ6JJJ04OVMVDfqcdaBeGZTPXhsk';
         
         // Function to verify with edge function
         async function verifyEmail() {
@@ -618,19 +621,22 @@
             }
             
             try {
-                console.log('🚀 Starting verification process');
+                console.log('🚀 Starting verification with token length:', token.length);
                 loadingText.textContent = 'Connecting to verification service...';
                 
-                // Call edge function for verification
-                const verifyUrl = `${edgeFunctionUrl}/verify-email?token=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}`;
+                // Call edge function for verification WITH CORRECT HEADERS
+                const verifyUrl = `${edgeFunctionUrl}?token=${encodeURIComponent(token)}&type=${encodeURIComponent(type)}`;
                 console.log('📞 Calling verification URL');
                 
                 loadingText.textContent = 'Verifying your email...';
                 
+                // FIXED: Added required headers with anon key
                 const response = await fetch(verifyUrl, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
+                        'apikey': supabaseAnonKey,
+                        'Authorization': `Bearer ${supabaseAnonKey}`
                     }
                 });
                 
@@ -645,7 +651,7 @@
                     verificationResult = { success: true, data: result };
                     showSuccess('Your email has been verified and your account is active!');
                     
-                    // Store verification success in session storage to prevent re-verification on page refresh
+                    // Store verification success in session storage
                     sessionStorage.setItem('navo_verification_success', 'true');
                     sessionStorage.setItem('navo_verification_token', token);
                     
@@ -885,7 +891,7 @@
             verifyEmail();
         });
         
-        // Handle page visibility changes (prevents multiple verifications on page refresh)
+        // Handle page visibility changes
         document.addEventListener('visibilitychange', function() {
             if (document.visibilityState === 'visible' && verificationInProgress) {
                 console.log('⚠️ Page became visible during verification');
