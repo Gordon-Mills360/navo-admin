@@ -66,6 +66,8 @@ import {
   RadioGroup,
   Stack,
   Container,
+  Wrap,
+  WrapItem,
 } from '@chakra-ui/react';
 import { 
   SearchIcon, 
@@ -1117,7 +1119,7 @@ const Payments = () => {
       </Box>
       
       {/* Filters */}
-      <Box bg="white" p={4} borderRadius="lg" shadow="sm" mb={6}>
+      <Box bg="white" p={4} borderRadius="lg" shadow="sm" mb={6} width="100%">
         <Flex justify="space-between" align="center" mb={4}>
           <Text fontWeight="medium">Filters</Text>
           <Flex gap={2}>
@@ -1138,7 +1140,7 @@ const Payments = () => {
           </Flex>
         </Flex>
         
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} width="100%">
           <InputGroup>
             <InputLeftElement pointerEvents="none">
               <SearchIcon color="gray.300" />
@@ -1147,12 +1149,14 @@ const Payments = () => {
               placeholder="Search payments..."
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
+              width="100%"
             />
           </InputGroup>
           
           <Select
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
+            width="100%"
           >
             {STATUS_OPTIONS.map(option => (
               <option key={option.value} value={option.value}>
@@ -1161,57 +1165,72 @@ const Payments = () => {
             ))}
           </Select>
           
-          <Flex gap={2}>
-            <InputGroup flex="1">
-              <InputLeftElement pointerEvents="none">
-                <CalendarIcon color="gray.300" fontSize="sm" />
-              </InputLeftElement>
-              <Input
-                type="date"
-                value={filters.startDate}
-                onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                placeholder="From"
-              />
-            </InputGroup>
+          <Wrap spacing={2} width="100%">
+            <WrapItem flex="1" minW="150px">
+              <InputGroup width="100%">
+                <InputLeftElement pointerEvents="none">
+                  <CalendarIcon color="gray.300" fontSize="sm" />
+                </InputLeftElement>
+                <Input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                  placeholder="From"
+                  width="100%"
+                  fontSize="sm"
+                />
+              </InputGroup>
+            </WrapItem>
             
-            <InputGroup flex="1">
-              <InputLeftElement pointerEvents="none">
-                <CalendarIcon color="gray.300" fontSize="sm" />
-              </InputLeftElement>
-              <Input
-                type="date"
-                value={filters.endDate}
-                onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                placeholder="To"
-              />
-            </InputGroup>
-          </Flex>
+            <WrapItem flex="1" minW="150px">
+              <InputGroup width="100%">
+                <InputLeftElement pointerEvents="none">
+                  <CalendarIcon color="gray.300" fontSize="sm" />
+                </InputLeftElement>
+                <Input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                  placeholder="To"
+                  width="100%"
+                  fontSize="sm"
+                />
+              </InputGroup>
+            </WrapItem>
+          </Wrap>
         </SimpleGrid>
         
         {/* Advanced filters row */}
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mt={4}>
-          <Flex gap={2}>
-            <Input
-              type="number"
-              placeholder="Min Amount"
-              value={filters.minAmount}
-              onChange={(e) => handleFilterChange('minAmount', e.target.value)}
-              min="0"
-              step="0.01"
-            />
-            <Input
-              type="number"
-              placeholder="Max Amount"
-              value={filters.maxAmount}
-              onChange={(e) => handleFilterChange('maxAmount', e.target.value)}
-              min="0"
-              step="0.01"
-            />
-          </Flex>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mt={4} width="100%">
+          <Wrap spacing={2} width="100%">
+            <WrapItem flex="1" minW="120px">
+              <Input
+                type="number"
+                placeholder="Min Amount"
+                value={filters.minAmount}
+                onChange={(e) => handleFilterChange('minAmount', e.target.value)}
+                min="0"
+                step="0.01"
+                width="100%"
+              />
+            </WrapItem>
+            <WrapItem flex="1" minW="120px">
+              <Input
+                type="number"
+                placeholder="Max Amount"
+                value={filters.maxAmount}
+                onChange={(e) => handleFilterChange('maxAmount', e.target.value)}
+                min="0"
+                step="0.01"
+                width="100%"
+              />
+            </WrapItem>
+          </Wrap>
           
           <Select
             value={filters.currency}
             onChange={(e) => handleFilterChange('currency', e.target.value)}
+            width="100%"
           >
             <option value="all">All Currencies</option>
             <option value="GHS">Ghana Cedis (GHS)</option>
@@ -1237,6 +1256,7 @@ const Payments = () => {
                 isClosable: true,
               });
             }}
+            width="100%"
           >
             Preview Commission
           </Button>
@@ -1244,7 +1264,7 @@ const Payments = () => {
       </Box>
       
       {/* Results Summary */}
-      <Flex justify="space-between" align="center" mb={4}>
+      <Flex justify="space-between" align="center" mb={4} width="100%">
         <Text color="gray.600">
           Showing {Math.min(paginatedPayments.length, ITEMS_PER_PAGE)} of {filteredPayments.length} payments
           {paymentTypeTab !== 'all' && ` (${paymentTypeTab})`}
@@ -1278,7 +1298,7 @@ const Payments = () => {
       
       {/* Table View */}
       {viewMode === 'table' ? (
-        <Box bg="white" borderRadius="lg" shadow="sm" overflow="auto" mb={6}>
+        <Box bg="white" borderRadius="lg" shadow="sm" overflow="auto" mb={6} width="100%">
           <Table variant="simple" size="md">
             <Thead bg="gray.50">
               <Tr>
@@ -1411,9 +1431,9 @@ const Payments = () => {
         </Box>
       ) : (
         /* Card View */
-        <Flex direction="column" gap={4} mb={6}>
+        <Flex direction="column" gap={4} mb={6} width="100%">
           {paginatedPayments.length === 0 ? (
-            <Box bg="white" p={10} borderRadius="lg" shadow="sm" textAlign="center">
+            <Box bg="white" p={10} borderRadius="lg" shadow="sm" textAlign="center" width="100%">
               <Text mb={2} fontSize="lg">No payments found</Text>
               <Text color="gray.600">
                 Try adjusting your filters or search terms

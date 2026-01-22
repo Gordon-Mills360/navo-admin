@@ -71,7 +71,7 @@ const Users = () => {
           full_name,
           phone,
           role,
-          is_driver_approved,
+          account_status,
           rating,
           is_online,
           vehicle_number,
@@ -104,7 +104,7 @@ const Users = () => {
             full_name,
             phone,
             role,
-            is_driver_approved,
+            account_status,
             rating,
             is_online,
             vehicle_number,
@@ -195,18 +195,15 @@ const Users = () => {
     // Apply status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(user => {
-        if (statusFilter === 'active') return user.is_online || true; // Default to true if is_online doesn't exist
+        if (statusFilter === 'active') return user.is_online || true;
         if (statusFilter === 'inactive') return !(user.is_online || true);
         if (statusFilter === 'driver_pending') {
           return user.role === 'driver' && 
-                 (!user.driver?.[0]?.approved && 
-                  !user.driver?.[0]?.suspended && 
-                  user.driver?.[0]?.verification_status === 'pending');
+                 user.account_status === 'pending';
         }
         if (statusFilter === 'driver_approved') {
           return user.role === 'driver' && 
-                 (user.driver?.[0]?.approved || 
-                  user.driver?.[0]?.verification_status === 'verified');
+                 user.account_status === 'approved';
         }
         return true;
       });
@@ -270,12 +267,15 @@ const Users = () => {
     const drivers = users.filter(u => u.role === 'driver').length;
     const activeDrivers = users.filter(u => 
       u.role === 'driver' && 
-      (u.driver?.[0]?.approved || u.driver?.[0]?.verification_status === 'verified')
+      u.account_status === 'approved'
     ).length;
     const pendingDrivers = users.filter(u => 
       u.role === 'driver' && 
-      !u.driver?.[0]?.approved && 
-      u.driver?.[0]?.verification_status === 'pending'
+      u.account_status === 'pending'
+    ).length;
+    const rejectedDrivers = users.filter(u => 
+      u.role === 'driver' && 
+      u.account_status === 'rejected'
     ).length;
     
     // For online status, use is_online or default to true
@@ -286,7 +286,8 @@ const Users = () => {
       passengers, 
       drivers, 
       activeDrivers, 
-      pendingDrivers, 
+      pendingDrivers,
+      rejectedDrivers, 
       online 
     };
   };
@@ -374,7 +375,7 @@ const Users = () => {
               <StatLabel fontSize="xs" color="gray.600">Drivers</StatLabel>
               <StatNumber fontSize="xl" color="green.500">{stats.drivers}</StatNumber>
               <StatHelpText fontSize="xs">
-                {stats.activeDrivers} active
+                {stats.activeDrivers} active, {stats.pendingDrivers} pending
               </StatHelpText>
             </Stat>
           </CardBody>
@@ -386,7 +387,7 @@ const Users = () => {
               <StatLabel fontSize="xs" color="gray.600">Active Drivers</StatLabel>
               <StatNumber fontSize="xl" color="green.500">{stats.activeDrivers}</StatNumber>
               <StatHelpText fontSize="xs">
-                {stats.pendingDrivers} pending
+                Approved by admin
               </StatHelpText>
             </Stat>
           </CardBody>
@@ -443,7 +444,6 @@ const Users = () => {
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
                 bg="white"
-                leftIcon={<FaUser />}
               >
                 <option value="all">All Roles</option>
                 <option value="passenger">Passengers</option>
@@ -457,13 +457,13 @@ const Users = () => {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 bg="white"
-                leftIcon={<FaFilter />}
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
                 <option value="driver_pending">Driver Pending</option>
                 <option value="driver_approved">Driver Approved</option>
+                <option value="driver_rejected">Driver Rejected</option>
               </Select>
             </GridItem>
             
@@ -493,8 +493,13 @@ const Users = () => {
             <Badge colorScheme="yellow" px={3} py={1}>
               Pending: {filteredUsers.filter(u => 
                 u.role === 'driver' && 
-                !u.driver?.[0]?.approved && 
-                u.driver?.[0]?.verification_status === 'pending'
+                u.account_status === 'pending'
+              ).length}
+            </Badge>
+            <Badge colorScheme="red" px={3} py={1}>
+              Rejected: {filteredUsers.filter(u => 
+                u.role === 'driver' && 
+                u.account_status === 'rejected'
               ).length}
             </Badge>
           </HStack>

@@ -83,28 +83,30 @@ const Rides = () => {
       setRefreshing(true);
       setError(null);
       
-      // Build safe query that matches your exact schema
+      // Updated query that matches your exact rides table schema
       const { data, error: fetchError } = await supabase
         .from('rides')
         .select(`
           id,
           status,
           payment_status,
-          fare,
-          fare_amount,
+          estimated_fare,
           actual_fare,
-          pickup_location,
-          dropoff_location,
-          distance_km,
-          duration_min,
-          city,
-          commission,
+          pickup_address,
+          dropoff_address,
+          estimated_distance_km,
+          actual_distance_km,
+          estimated_duration_mins,
+          actual_duration_mins,
+          commission_rate,
+          commission_amount,
           driver_payout,
           payment_id,
           cancellation_reason,
-          notes,
+          ride_notes,
           created_at,
           updated_at,
+          requested_at,
           accepted_at,
           arrived_at,
           started_at,
@@ -112,6 +114,11 @@ const Rides = () => {
           cancelled_at,
           passenger_id,
           driver_id,
+          passenger_rating,
+          driver_rating,
+          fare_currency,
+          is_surge_pricing,
+          surge_multiplier,
           passenger:passenger_id (
             id,
             full_name,
@@ -132,7 +139,7 @@ const Rides = () => {
         // Try simpler query without joins first
         const { data: simpleData, error: simpleError } = await supabase
           .from('rides')
-          .select('id, status, fare, created_at, passenger_id, driver_id')
+          .select('id, status, estimated_fare, actual_fare, created_at, passenger_id, driver_id')
           .order('created_at', { ascending: false });
           
         if (simpleError) {
@@ -224,22 +231,22 @@ const Rides = () => {
     const total = ridesData.length;
     const requested = ridesData.filter(r => r.status === 'requested').length;
     const ongoing = ridesData.filter(r => 
-      ['ongoing', 'in_progress', 'started', 'accepted', 'arrived'].includes(r.status)
+      ['ongoing', 'started', 'accepted', 'arrived'].includes(r.status)
     ).length;
     const completed = ridesData.filter(r => 
-      r.status === 'completed' || r.status === 'PAID'
+      r.status === 'completed'
     ).length;
     const cancelled = ridesData.filter(r => r.status === 'cancelled').length;
     const active = ridesData.filter(r => 
-      ['requested', 'accepted', 'arrived', 'started', 'ongoing', 'in_progress'].includes(r.status)
+      ['requested', 'accepted', 'arrived', 'started', 'ongoing'].includes(r.status)
     ).length;
     
     const completedRides = ridesData.filter(r => 
-      r.status === 'completed' || r.status === 'PAID'
+      r.status === 'completed'
     );
     
     const totalRevenue = completedRides.reduce((sum, ride) => 
-      sum + (ride.actual_fare || ride.fare || ride.fare_amount || 0), 0
+      sum + (ride.actual_fare || ride.estimated_fare || 0), 0
     );
     
     const averageFare = completedRides.length > 0 
@@ -265,7 +272,7 @@ const Rides = () => {
     if (statusFilter !== 'all') {
       if (statusFilter === 'active') {
         filtered = filtered.filter(ride => 
-          ['requested', 'accepted', 'arrived', 'started', 'ongoing', 'in_progress'].includes(ride.status)
+          ['requested', 'accepted', 'arrived', 'started', 'ongoing'].includes(ride.status)
         );
       } else {
         filtered = filtered.filter(ride => ride.status === statusFilter);
@@ -291,8 +298,8 @@ const Rides = () => {
       filtered = filtered.filter(ride => {
         const passengerName = ride.passenger?.full_name || '';
         const driverName = ride.driver?.full_name || '';
-        const pickupLocation = ride.pickup_location || '';
-        const dropoffLocation = ride.dropoff_location || '';
+        const pickupLocation = ride.pickup_address || '';
+        const dropoffLocation = ride.dropoff_address || '';
         const rideId = ride.id || '';
         const passengerPhone = ride.passenger?.phone || '';
         
@@ -328,18 +335,14 @@ const Rides = () => {
   const getStatusColor = (status) => {
     switch ((status || '').toLowerCase()) {
       case 'completed':
-      case 'paid':
         return 'green';
       case 'accepted':
       case 'arrived':
       case 'started':
       case 'ongoing':
-      case 'in_progress':
         return 'blue';
       case 'requested':
         return 'orange';
-      case 'completed_pending_payment':
-        return 'yellow';
       case 'cancelled':
         return 'red';
       default:
@@ -354,11 +357,11 @@ const Rides = () => {
       'arrived': 'Driver Arrived',
       'started': 'Ride Started',
       'ongoing': 'Ride Ongoing',
-      'in_progress': 'In Progress',
       'completed': 'Completed',
       'cancelled': 'Cancelled',
-      'completed_pending_payment': 'Pending Payment',
-      'paid': 'Paid',
+      'searching': 'Searching Driver',
+      'no_drivers': 'No Drivers Found',
+      'rejected': 'Rejected by Driver',
     };
     
     return statusMap[status?.toLowerCase()] || status?.replace('_', ' ').toUpperCase() || 'Unknown';
@@ -511,19 +514,19 @@ const Rides = () => {
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 bg="white"
-                leftIcon={<FaFilter />}
               >
                 <option value="all">All Status</option>
                 <option value="active">Active Rides</option>
                 <option value="requested">Requested</option>
+                <option value="searching">Searching</option>
                 <option value="accepted">Accepted</option>
                 <option value="arrived">Arrived</option>
                 <option value="started">Started</option>
                 <option value="ongoing">Ongoing</option>
-                <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
-                <option value="paid">Paid</option>
                 <option value="cancelled">Cancelled</option>
+                <option value="no_drivers">No Drivers</option>
+                <option value="rejected">Rejected</option>
               </Select>
             </GridItem>
             
@@ -532,7 +535,6 @@ const Rides = () => {
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
                 bg="white"
-                leftIcon={<FaCalendarAlt />}
               >
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
@@ -559,10 +561,10 @@ const Rides = () => {
               Total: {filteredRides.length} rides
             </Badge>
             <Badge colorScheme="green" px={3} py={1}>
-              Completed: {filteredRides.filter(r => r.status === 'completed' || r.status === 'PAID').length}
+              Completed: {filteredRides.filter(r => r.status === 'completed').length}
             </Badge>
             <Badge colorScheme="blue" px={3} py={1}>
-              Active: {filteredRides.filter(r => ['requested', 'accepted', 'arrived', 'started', 'ongoing', 'in_progress'].includes(r.status)).length}
+              Active: {filteredRides.filter(r => ['requested', 'accepted', 'arrived', 'started', 'ongoing'].includes(r.status)).length}
             </Badge>
             <Badge colorScheme="red" px={3} py={1}>
               Cancelled: {filteredRides.filter(r => r.status === 'cancelled').length}

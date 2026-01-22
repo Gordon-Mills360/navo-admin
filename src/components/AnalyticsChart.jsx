@@ -30,6 +30,8 @@ import {
   CardHeader,
   CardBody,
   Heading,
+  Wrap,
+  WrapItem,
 } from '@chakra-ui/react';
 import {
   FaChartLine,
@@ -86,20 +88,21 @@ const AnalyticsChart = () => {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
       
-      // Fetch rides data
+      // Fetch rides data - using correct column names from your schema
       const { data: ridesData, error: ridesError } = await supabase
         .from('rides')
-        .select('created_at, fare, status')
+        .select('created_at, estimated_fare, actual_fare, status')
         .gte('created_at', startDateStr)
         .lte('created_at', endDateStr)
         .order('created_at', { ascending: true });
       
       if (ridesError) throw ridesError;
       
-      // Fetch drivers data
+      // Fetch drivers data - using profiles table instead of drivers table
       const { data: driversData, error: driversError } = await supabase
-        .from('drivers')
-        .select('created_at, approved')
+        .from('profiles')
+        .select('created_at, account_status')
+        .eq('role', 'driver')
         .gte('created_at', startDateStr)
         .lte('created_at', endDateStr)
         .order('created_at', { ascending: true });
@@ -141,7 +144,8 @@ const AnalyticsChart = () => {
       if (dayIndex >= 0 && dayIndex < daysCount) {
         ridesPerDay[dayIndex]++;
         if (ride.status === 'completed') {
-          revenuePerDay[dayIndex] += ride.fare || 0;
+          // Use actual_fare if available, otherwise estimated_fare
+          revenuePerDay[dayIndex] += ride.actual_fare || ride.estimated_fare || 0;
         }
       }
     });
@@ -153,7 +157,7 @@ const AnalyticsChart = () => {
       
       if (dayIndex >= 0 && dayIndex < daysCount) {
         driversPerDay[dayIndex]++;
-        if (driver.approved) {
+        if (driver.account_status === 'approved') {
           approvedDriversPerDay[dayIndex]++;
         }
       }
@@ -487,7 +491,7 @@ const AnalyticsChart = () => {
   const totalDrivers = chartType === 'drivers' ? chartData.data.datasets[1].data[chartData.data.datasets[1].data.length - 1] || 0 : 0;
 
   return (
-    <Box>
+    <Box width="100%" overflow="hidden">
       {/* Chart Controls */}
       <Flex 
         direction={{ base: 'column', md: 'row' }} 
@@ -495,93 +499,121 @@ const AnalyticsChart = () => {
         align={{ base: 'stretch', md: 'center' }}
         mb={6}
         gap={4}
+        flexWrap="wrap"
+        width="100%"
       >
-        <HStack spacing={4}>
-          <ButtonGroup isAttached variant="outline" size={{ base: 'sm', md: 'md' }}>
-            <Button
-              onClick={() => setChartType('rides')}
-              leftIcon={<Icon as={FaChartLine} />}
-              colorScheme={chartType === 'rides' ? 'blue' : 'gray'}
-              variant={chartType === 'rides' ? 'solid' : 'outline'}
-            >
-              Rides
-            </Button>
-            <Button
-              onClick={() => setChartType('revenue')}
-              leftIcon={<Icon as={FaDollarSign} />}
-              colorScheme={chartType === 'revenue' ? 'brand' : 'gray'}
-              variant={chartType === 'revenue' ? 'solid' : 'outline'}
-            >
-              Revenue
-            </Button>
-            <Button
-              onClick={() => setChartType('drivers')}
-              leftIcon={<Icon as={FaUserFriends} />}
-              colorScheme={chartType === 'drivers' ? 'green' : 'gray'}
-              variant={chartType === 'drivers' ? 'solid' : 'outline'}
-            >
-              Drivers
-            </Button>
-          </ButtonGroup>
+        <Wrap spacing={4} align="center" width={{ base: '100%', md: 'auto' }} justify={{ base: 'center', md: 'flex-start' }}>
+          <WrapItem>
+            <ButtonGroup isAttached variant="outline" size={{ base: 'sm', md: 'md' }} width="100%">
+              <Button
+                onClick={() => setChartType('rides')}
+                leftIcon={<Icon as={FaChartLine} />}
+                colorScheme={chartType === 'rides' ? 'blue' : 'gray'}
+                variant={chartType === 'rides' ? 'solid' : 'outline'}
+                whiteSpace="nowrap"
+                flexShrink={0}
+              >
+                Rides
+              </Button>
+              <Button
+                onClick={() => setChartType('revenue')}
+                leftIcon={<Icon as={FaDollarSign} />}
+                colorScheme={chartType === 'revenue' ? 'brand' : 'gray'}
+                variant={chartType === 'revenue' ? 'solid' : 'outline'}
+                whiteSpace="nowrap"
+                flexShrink={0}
+              >
+                Revenue
+              </Button>
+              <Button
+                onClick={() => setChartType('drivers')}
+                leftIcon={<Icon as={FaUserFriends} />}
+                colorScheme={chartType === 'drivers' ? 'green' : 'gray'}
+                variant={chartType === 'drivers' ? 'solid' : 'outline'}
+                whiteSpace="nowrap"
+                flexShrink={0}
+              >
+                Drivers
+              </Button>
+            </ButtonGroup>
+          </WrapItem>
           
-          <Badge 
-            colorScheme="brand" 
-            variant="subtle" 
-            borderRadius="full" 
-            px={3} 
-            py={1}
-            display="flex"
-            alignItems="center"
-            gap={2}
-          >
-            <Icon as={FaCalendarAlt} boxSize={3} />
-            <Text fontSize="xs" fontWeight="medium">
-              {timeRange === '7days' ? '7 Days' : timeRange === '30days' ? '30 Days' : '90 Days'}
-            </Text>
-          </Badge>
-        </HStack>
+          <WrapItem>
+            <Badge 
+              colorScheme="brand" 
+              variant="subtle" 
+              borderRadius="full" 
+              px={3} 
+              py={2}
+              display="flex"
+              alignItems="center"
+              gap={2}
+              whiteSpace="nowrap"
+              flexShrink={0}
+              fontSize={{ base: 'xs', sm: 'sm' }}
+            >
+              <Icon as={FaCalendarAlt} boxSize={3} />
+              <Text fontWeight="medium">
+                {timeRange === '7days' ? '7 Days' : timeRange === '30days' ? '30 Days' : '90 Days'}
+              </Text>
+            </Badge>
+          </WrapItem>
+        </Wrap>
         
-        <HStack spacing={2}>
-          <ButtonGroup size="sm" isAttached variant="outline">
-            <Button
-              onClick={() => setTimeRange('7days')}
-              colorScheme={timeRange === '7days' ? 'brand' : 'gray'}
-              variant={timeRange === '7days' ? 'solid' : 'outline'}
-            >
-              7D
-            </Button>
-            <Button
-              onClick={() => setTimeRange('30days')}
-              colorScheme={timeRange === '30days' ? 'brand' : 'gray'}
-              variant={timeRange === '30days' ? 'solid' : 'outline'}
-            >
-              30D
-            </Button>
-            <Button
-              onClick={() => setTimeRange('90days')}
-              colorScheme={timeRange === '90days' ? 'brand' : 'gray'}
-              variant={timeRange === '90days' ? 'solid' : 'outline'}
-            >
-              90D
-            </Button>
-          </ButtonGroup>
+        <Wrap spacing={2} align="center" width={{ base: '100%', md: 'auto' }} justify={{ base: 'center', md: 'flex-end' }}>
+          <WrapItem>
+            <ButtonGroup size={{ base: 'sm', md: 'md' }} isAttached variant="outline" flexShrink={0}>
+              <Button
+                onClick={() => setTimeRange('7days')}
+                colorScheme={timeRange === '7days' ? 'brand' : 'gray'}
+                variant={timeRange === '7days' ? 'solid' : 'outline'}
+                px={{ base: 3, md: 4 }}
+                whiteSpace="nowrap"
+              >
+                7D
+              </Button>
+              <Button
+                onClick={() => setTimeRange('30days')}
+                colorScheme={timeRange === '30days' ? 'brand' : 'gray'}
+                variant={timeRange === '30days' ? 'solid' : 'outline'}
+                px={{ base: 3, md: 4 }}
+                whiteSpace="nowrap"
+              >
+                30D
+              </Button>
+              <Button
+                onClick={() => setTimeRange('90days')}
+                colorScheme={timeRange === '90days' ? 'brand' : 'gray'}
+                variant={timeRange === '90days' ? 'solid' : 'outline'}
+                px={{ base: 3, md: 4 }}
+                whiteSpace="nowrap"
+              >
+                90D
+              </Button>
+            </ButtonGroup>
+          </WrapItem>
           
-          <Button
-            size="sm"
-            onClick={refreshChart}
-            isLoading={loading}
-            leftIcon={<Icon as={FaSyncAlt} />}
-            colorScheme="gray"
-            variant="outline"
-          >
-            Refresh
-          </Button>
-        </HStack>
+          <WrapItem>
+            <Button
+              size={{ base: 'sm', md: 'md' }}
+              onClick={refreshChart}
+              isLoading={loading}
+              leftIcon={<Icon as={FaSyncAlt} />}
+              colorScheme="gray"
+              variant="outline"
+              whiteSpace="nowrap"
+              px={{ base: 3, md: 4 }}
+              flexShrink={0}
+            >
+              Refresh
+            </Button>
+          </WrapItem>
+        </Wrap>
       </Flex>
 
       {/* Chart Container */}
-      <Card borderRadius="xl" boxShadow="sm" borderWidth="1px" borderColor="gray.200">
-        <CardBody p={6}>
+      <Card borderRadius="xl" boxShadow="sm" borderWidth="1px" borderColor="gray.200" width="100%">
+        <CardBody p={{ base: 4, md: 6 }} width="100%">
           <Box h={{ base: '300px', md: '400px' }} w="100%">
             {chartType === 'revenue' ? (
               <Bar data={chartData.data} options={chartData.options} />
@@ -593,12 +625,12 @@ const AnalyticsChart = () => {
       </Card>
 
       {/* Summary Cards */}
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mt={6}>
+      <SimpleGrid columns={{ base: 1, sm: 2, md: 3 }} spacing={4} mt={6} width="100%">
         {chartType === 'rides' && (
           <>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="blue.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="blue.200" width="100%">
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaChartLine} color="blue.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {totalRides}
@@ -609,9 +641,9 @@ const AnalyticsChart = () => {
                 </VStack>
               </CardBody>
             </Card>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="green.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="green.200" width="100%">
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaChartLine} color="green.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {chartData.data.datasets[1].data.reduce((a, b) => a + b, 0)}
@@ -622,9 +654,9 @@ const AnalyticsChart = () => {
                 </VStack>
               </CardBody>
             </Card>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="gray.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="gray.200" width="100%" gridColumn={{ base: 'span 2', sm: 'span 2', md: 'span 1' }}>
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaChartLine} color="gray.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {totalRides > 0 
@@ -642,9 +674,9 @@ const AnalyticsChart = () => {
         
         {chartType === 'revenue' && (
           <>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="brand.100">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="brand.100" width="100%">
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaDollarSign} color="brand.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {formatCurrency(totalRevenue)}
@@ -655,9 +687,9 @@ const AnalyticsChart = () => {
                 </VStack>
               </CardBody>
             </Card>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="yellow.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="yellow.200" width="100%">
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaDollarSign} color="yellow.600" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {formatCurrency(totalRevenue * 0.2)}
@@ -668,9 +700,9 @@ const AnalyticsChart = () => {
                 </VStack>
               </CardBody>
             </Card>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="gray.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="gray.200" width="100%" gridColumn={{ base: 'span 2', sm: 'span 2', md: 'span 1' }}>
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaDollarSign} color="gray.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {formatCurrency(
@@ -690,9 +722,9 @@ const AnalyticsChart = () => {
         
         {chartType === 'drivers' && (
           <>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="blue.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="blue.200" width="100%">
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaUserFriends} color="blue.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {chartData.data.datasets[0].data.reduce((a, b) => a + b, 0)}
@@ -703,9 +735,9 @@ const AnalyticsChart = () => {
                 </VStack>
               </CardBody>
             </Card>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="green.200">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="green.200" width="100%">
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaUserFriends} color="green.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {totalDrivers}
@@ -716,9 +748,9 @@ const AnalyticsChart = () => {
                 </VStack>
               </CardBody>
             </Card>
-            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="brand.100">
-              <CardBody p={4}>
-                <VStack align="center" spacing={2}>
+            <Card borderRadius="lg" boxShadow="sm" borderWidth="1px" borderColor="brand.100" width="100%" gridColumn={{ base: 'span 2', sm: 'span 2', md: 'span 1' }}>
+              <CardBody p={4} width="100%">
+                <VStack align="center" spacing={2} width="100%">
                   <Icon as={FaUserFriends} color="brand.500" boxSize={5} />
                   <Text fontSize="2xl" fontWeight="bold" color="gray.800">
                     {chartData.data.datasets[2].data[chartData.data.datasets[2].data.length - 1] || 0}

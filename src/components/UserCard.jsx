@@ -17,6 +17,7 @@ import {
   AlertTitle,
   AlertDescription,
   Tooltip,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import {
   FaUser,

@@ -122,7 +122,7 @@ const Dashboard = () => {
       // Check profiles table for driver approval status
       const { data: profilesColumns, error: profilesError } = await supabase
         .from('profiles')
-        .select('is_driver_approved')
+        .select('account_status')
         .limit(1);
       
       if (profilesError) {
@@ -176,12 +176,12 @@ const Dashboard = () => {
         // Get all rides - SIMPLE QUERY
         supabase
           .from('rides')
-          .select('id, status, fare, actual_fare, created_at', { count: 'exact' }),
+          .select('id, status, estimated_fare, actual_fare, created_at', { count: 'exact' }),
         
         // Get all successful payments - SIMPLE QUERY
         supabase
           .from('payments')
-          .select('amount, commission, driver_earnings, status, created_at')
+          .select('amount, commission_amount, driver_earnings, status, created_at')
           .eq('status', 'success'),
         
         // Recent completed rides
@@ -231,7 +231,7 @@ const Dashboard = () => {
           .select(`
             id,
             amount,
-            commission,
+            commission_amount,
             driver_earnings,
             status,
             created_at,
@@ -300,12 +300,12 @@ const Dashboard = () => {
         driverRatings = allDriversData?.filter(d => d.rating > 0).map(d => d.rating) || [];
         
       } else if (schema?.hasProfilesApproval) {
-        // Use profiles.is_driver_approved column
+        // Use profiles.account_status column
         const { data: approvedDriversData } = await supabase
           .from('profiles')
           .select('id, rating')
           .eq('role', 'driver')
-          .eq('is_driver_approved', true);
+          .eq('account_status', 'approved'); // Changed from is_driver_approved to account_status = 'approved'
         
         verifiedDrivers = approvedDriversData?.length || 0;
         pendingDrivers = drivers - verifiedDrivers;
@@ -358,13 +358,13 @@ const Dashboard = () => {
         r.status === 'completed' || r.status === 'PAID'
       ) || [];
       const totalFare = completedRidesData.reduce((sum, r) => 
-        sum + (r.actual_fare || r.fare || 0), 0);
+        sum + (r.actual_fare || r.estimated_fare || 0), 0);
       const averageFare = completedRidesData.length > 0 ? totalFare / completedRidesData.length : 0;
       
       // Payment statistics
       const successfulPayments = paymentsResponse.data || [];
       const totalRevenue = successfulPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-      const platformCommission = successfulPayments.reduce((sum, p) => sum + (p.commission || 0), 0);
+      const platformCommission = successfulPayments.reduce((sum, p) => sum + (p.commission_amount || 0), 0);
       const driverPayouts = successfulPayments.reduce((sum, p) => 
         sum + (p.driver_earnings || 0), 0);
       
@@ -566,7 +566,7 @@ const Dashboard = () => {
                     </HStack>
                     <HStack>
                       <Box w="2" h="2" borderRadius="full" bg={schemaInfo.hasProfilesApproval ? 'green.500' : 'red.500'} />
-                      <Text fontSize="xs">profiles.is_driver_approved: {schemaInfo.hasProfilesApproval ? 'Yes' : 'No'}</Text>
+                      <Text fontSize="xs">profiles.account_status: {schemaInfo.hasProfilesApproval ? 'Yes' : 'No'}</Text>
                     </HStack>
                   </VStack>
                 </Box>
@@ -816,7 +816,7 @@ const Dashboard = () => {
                             {formatDate(ride.created_at)}
                           </Text>
                           <Text fontSize="sm" fontWeight="bold" color="gray.800">
-                            {formatCurrency(ride.actual_fare || ride.fare || 0)}
+                            {formatCurrency(ride.actual_fare || ride.estimated_fare || 0)}
                           </Text>
                         </Flex>
                       </Box>
@@ -944,7 +944,7 @@ const Dashboard = () => {
                   {recentPayments.map((payment) => (
                     <Tr key={payment.id} _hover={{ bg: 'gray.50' }}>
                       <Td fontWeight="bold">{formatCurrency(payment.amount)}</Td>
-                      <Td color="red.600">{formatCurrency(payment.commission)}</Td>
+                      <Td color="red.600">{formatCurrency(payment.commission_amount)}</Td>
                       <Td color="green.600">{formatCurrency(payment.driver_earnings)}</Td>
                       <Td fontSize="sm">{payment.passenger?.full_name || 'N/A'}</Td>
                       <Td fontSize="sm">{payment.driver?.full_name || 'N/A'}</Td>

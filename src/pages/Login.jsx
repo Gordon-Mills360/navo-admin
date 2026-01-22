@@ -138,7 +138,7 @@ const Login = () => {
         <Box textAlign="center" mb={8}>
           <Flex justify="center" mb={4}>
             <Image
-              src="https://lwepbrvqvbrbpjylrjsx.supabase.co/storage/v1/object/public/navo-media/logo%20(1).png"
+              src="https://qzcyjycqckchhjkfntqb.supabase.co/storage/v1/object/public/navo-media/logo.png"
               alt="NAVO Logo"
               maxH="240px"
               objectFit="contain"

@@ -298,7 +298,6 @@
             padding: 20px;
             margin: 25px 0;
             border-left: 4px solid #F44336;
-            display: none;
         }
 
         .error-title {
@@ -328,7 +327,6 @@
             padding: 20px;
             margin: 25px 0;
             border-left: 4px solid #FF9800;
-            display: none;
         }
 
         .expired-title {
@@ -366,6 +364,10 @@
 
         .action-button:hover {
             opacity: 0.9;
+        }
+
+        .success-content, .loading-content, .error-content, .expired-content {
+            display: none;
         }
 
         @media (max-width: 480px) {
@@ -459,90 +461,311 @@
         </div>
         
         <div class="content">
-            <div class="success-icon">
-                <div class="checkmark">✓</div>
-            </div>
-            
-            <h1 class="title" id="main-title">Email Verified Successfully!</h1>
-            
-            <p class="message" id="main-message">
-                Your NAVO Ride account has been activated and is ready to use.
-            </p>
-            
-            <div class="steps">
-                <div class="steps-title">Next Steps</div>
-                
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-text">Return to the NAVO Ride mobile app</div>
+            <!-- Loading State -->
+            <div id="loading-content" class="loading-content">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <span>Verifying your email...</span>
                 </div>
                 
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-text">Login with your email and password</div>
-                </div>
-                
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-text">Start booking or offering rides immediately</div>
+                <div class="message">
+                    Please wait while we confirm your email address.
                 </div>
             </div>
             
-            <div class="status-box">
-                <div class="status-title">Account Status</div>
-                <div class="status-text">✓ Email verified • ✓ Account active • ✓ Ready to ride</div>
+            <!-- Success State -->
+            <div id="success-content" class="success-content">
+                <div class="success-icon">
+                    <div class="checkmark">✓</div>
+                </div>
+                
+                <h1 class="title">Email Verified Successfully!</h1>
+                
+                <p class="message">
+                    Your NAVO Ride account has been activated and is ready to use.
+                </p>
+                
+                <div class="steps">
+                    <div class="steps-title">Next Steps</div>
+                    
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-text">Return to the NAVO Ride mobile app</div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-text">Login with your email and password</div>
+                    </div>
+                    
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-text">Start booking or offering rides immediately</div>
+                    </div>
+                </div>
+                
+                <div class="status-box">
+                    <div class="status-title">Account Status</div>
+                    <div class="status-text">✓ Email verified • ✓ Account active • ✓ Ready to ride</div>
+                </div>
+            </div>
+            
+            <!-- Error State -->
+            <div id="error-content" class="error-content">
+                <div class="error-box">
+                    <div class="error-title">Verification Failed</div>
+                    <div class="error-text" id="error-message">
+                        We couldn't verify your email address. The link may be invalid or expired.
+                    </div>
+                    <button class="action-button" onclick="retryVerification()">Try Again</button>
+                </div>
+                
+                <div class="message">
+                    If you continue to experience issues, please contact support.
+                </div>
+            </div>
+            
+            <!-- Expired State -->
+            <div id="expired-content" class="expired-content">
+                <div class="expired-box">
+                    <div class="expired-title">Link Expired</div>
+                    <div class="expired-text" id="expired-message">
+                        This verification link has expired. Please request a new verification email.
+                    </div>
+                    <button class="action-button" onclick="requestNewEmail()">Request New Verification Email</button>
+                </div>
+                
+                <div class="message">
+                    Check your email for a new verification link.
+                </div>
             </div>
         </div>
         
-        <div class="footer">
-            <button class="app-button" id="open-app-button" onclick="openApp()">
-                Open NAVO Ride App
-            </button>
-            
-            <div class="info-text">
-                If the app doesn't open automatically,<br>
-                please return to it manually and login.
+        <div class="footer" id="footer-content">
+            <!-- Success Footer -->
+            <div id="success-footer" class="success-footer">
+                <button class="app-button" id="open-app-button" onclick="openApp()">
+                    Open NAVO Ride App
+                </button>
+                
+                <div class="info-text">
+                    If the app doesn't open automatically,<br>
+                    <a href="https://admi.navoride.com/login" style="color: #FF9800; text-decoration: underline;">
+                        click here to login on web
+                    </a>
+                </div>
+                
+                <div class="security-badge">
+                    Secure Email Verification
+                </div>
             </div>
             
-            <div class="security-badge">
-                Secure Email Verification
+            <!-- Error Footer -->
+            <div id="error-footer" class="error-footer" style="display: none;">
+                <div class="info-text">
+                    Need help? Contact support: 
+                    <a href="mailto:support@navoride.com" style="color: #FF9800; text-decoration: underline;">
+                        support@navoride.com
+                    </a>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
-        // Simple script - NO API calls, just shows success
-        function openApp() {
-            const button = document.getElementById('open-app-button');
-            button.disabled = true;
-            button.textContent = 'Opening App...';
+        // Configuration
+        const config = {
+            EDGE_FUNCTION_URL: 'https://qzcyjycqckchhjkfntqb.supabase.co/functions/v1/send-verification-email',
+            LOGIN_URL: 'https://admi.navoride.com/login',
+            APP_SCHEME: 'navoride://login',
+            REDIRECT_DELAY: 3000 // 3 seconds
+        };
+
+        // DOM Elements
+        const loadingContent = document.getElementById('loading-content');
+        const successContent = document.getElementById('success-content');
+        const errorContent = document.getElementById('error-content');
+        const expiredContent = document.getElementById('expired-content');
+        const successFooter = document.getElementById('success-footer');
+        const errorFooter = document.getElementById('error-footer');
+        const errorMessage = document.getElementById('error-message');
+        const expiredMessage = document.getElementById('expired-message');
+
+        // URL Parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const type = urlParams.get('type') || 'signup';
+
+        // States
+        let verificationAttempted = false;
+
+        // Show a specific state
+        function showState(state) {
+            // Hide all states
+            [loadingContent, successContent, errorContent, expiredContent].forEach(el => {
+                el.style.display = 'none';
+            });
+            [successFooter, errorFooter].forEach(el => {
+                el.style.display = 'none';
+            });
             
-            // Try to open the mobile app
-            window.location.href = 'navoride://login?verified=true';
+            // Show requested state
+            switch(state) {
+                case 'loading':
+                    loadingContent.style.display = 'block';
+                    break;
+                case 'success':
+                    successContent.style.display = 'block';
+                    successFooter.style.display = 'block';
+                    break;
+                case 'error':
+                    errorContent.style.display = 'block';
+                    errorFooter.style.display = 'block';
+                    break;
+                case 'expired':
+                    expiredContent.style.display = 'block';
+                    errorFooter.style.display = 'block';
+                    break;
+            }
+        }
+
+        // Verify the email token
+        async function verifyEmail() {
+            if (verificationAttempted) return;
+            verificationAttempted = true;
             
-            // Fallback - show button enabled again after 2 seconds
-            setTimeout(() => {
-                button.textContent = 'Open NAVO Ride App';
-                button.disabled = false;
+            console.log('🔍 Starting email verification...');
+            console.log('📝 Token:', token);
+            console.log('📝 Type:', type);
+            
+            // Show loading state
+            showState('loading');
+            
+            // Check if token exists
+            if (!token) {
+                showError('Verification link is missing token. Please use the link from your email.');
+                return;
+            }
+            
+            try {
+                // Call your Edge Function verification endpoint
+                console.log('📞 Calling Edge Function:', config.EDGE_FUNCTION_URL);
                 
-                // Optional: Show web login option
-                const infoText = document.querySelector('.info-text');
-                infoText.innerHTML = 'If the app didn\'t open, <a href="https://admi.navoride.com/login" style="color: #FF9800; text-decoration: underline;">click here to login on web</a>';
-            }, 2000);
+                const response = await fetch(`${config.EDGE_FUNCTION_URL}?token=${encodeURIComponent(token)}&type=${type}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    }
+                });
+                
+                const data = await response.json();
+                console.log('📊 Edge Function Response:', data);
+                
+                if (response.ok && data.success) {
+                    // Success!
+                    console.log('✅ Email verified successfully!');
+                    showState('success');
+                    
+                    // Clean URL (remove token from address bar)
+                    cleanUrl();
+                    
+                    // Auto-redirect after delay
+                    setTimeout(() => {
+                        openApp();
+                    }, config.REDIRECT_DELAY);
+                    
+                } else {
+                    // Handle specific error cases
+                    if (data.error && data.error.includes('expired')) {
+                        showExpired(data.error);
+                    } else if (data.error && data.error.includes('already verified')) {
+                        // Email was already verified - still show success
+                        console.log('ℹ️ Email was already verified');
+                        showState('success');
+                        cleanUrl();
+                        setTimeout(openApp, config.REDIRECT_DELAY);
+                    } else {
+                        showError(data.error || 'Verification failed. Please try again.');
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Verification error:', error);
+                showError('Network error. Please check your connection and try again.');
+            }
         }
-        
-        // Auto-open app after 3 seconds
-        setTimeout(openApp, 3000);
-        
-        // Remove parameters from URL without refreshing
-        if (window.history.replaceState && window.location.search) {
-            const cleanUrl = window.location.origin + window.location.pathname;
-            window.history.replaceState(null, null, cleanUrl);
+
+        // Show error state
+        function showError(message) {
+            console.error('❌ Verification failed:', message);
+            errorMessage.textContent = message;
+            showState('error');
         }
-        
-        // Log success for debugging
-        console.log('✅ Email verification successful!');
-        console.log('🔗 URL parameters were:', window.location.search);
+
+        // Show expired state
+        function showExpired(message) {
+            console.warn('⏰ Verification link expired:', message);
+            expiredMessage.textContent = message;
+            showState('expired');
+        }
+
+        // Clean URL (remove token from address bar)
+        function cleanUrl() {
+            if (window.history.replaceState) {
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState(null, null, cleanUrl);
+                console.log('🧹 URL cleaned');
+            }
+        }
+
+        // Open the app or redirect to web login
+        function openApp() {
+            console.log('🚀 Opening app/redirecting to login...');
+            
+            const button = document.getElementById('open-app-button');
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Redirecting...';
+            }
+            
+            // Try to open mobile app first
+            window.location.href = config.APP_SCHEME + '?verified=true';
+            
+            // Fallback to web login after 1 second
+            setTimeout(() => {
+                window.location.href = config.LOGIN_URL + '?verified=true';
+            }, 1000);
+        }
+
+        // Retry verification
+        function retryVerification() {
+            console.log('🔄 Retrying verification...');
+            verificationAttempted = false;
+            verifyEmail();
+        }
+
+        // Request new verification email
+        function requestNewEmail() {
+            console.log('📧 Requesting new verification email...');
+            
+            // Show loading
+            showState('loading');
+            
+            // In a real app, you would call your backend to resend verification
+            // For now, just show a message
+            setTimeout(() => {
+                showError('Please return to the app and request a new verification email from your profile settings.');
+            }, 1500);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Email Verification Page Loaded');
+            console.log('🔗 Full URL:', window.location.href);
+            
+            // Start verification process
+            setTimeout(verifyEmail, 500);
+        });
     </script>
 </body>
 </html>

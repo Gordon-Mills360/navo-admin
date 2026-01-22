@@ -16,10 +16,11 @@ import {
 } from '@chakra-ui/react';
 import { FaBell, FaCog, FaUser, FaChevronDown } from 'react-icons/fa';
 import { supabase } from '../services/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const TopNav = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const bgColor = 'white';
   const borderColor = 'gray.200';
 
@@ -29,13 +30,14 @@ const TopNav = () => {
   };
 
   const handleProfile = () => {
-    // Navigate to profile page or show modal
-    console.log('Navigate to profile');
+    // Navigate to profile page
+    navigate('/admin/profile');
   };
 
   const handleSettings = () => {
-    // Navigate to settings page
-    console.log('Navigate to settings');
+    // Navigate to the same settings page as the Sidebar
+    // Navigate to the main settings page (Platform Settings)
+    navigate('/admin/settings/platform');
   };
 
   return (

@@ -241,6 +241,9 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
       boxShadow="sm" 
       borderWidth="1px" 
       borderColor="gray.200"
+      width="100%"  // Ensure full width
+      maxWidth="420px"  // Increased from default for better content fit
+      minWidth="380px"  // Minimum width to prevent squeezing
       _hover={{ 
         boxShadow: 'lg',
         transform: 'translateY(-2px)',
@@ -278,28 +281,38 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
             )}
           </Box>
 
-          <VStack align="start" spacing={2} flex={1}>
-            <Heading size="md" color="gray.800">
+          <VStack align="start" spacing={2} flex={1} minWidth="0"> {/* Added minWidth="0" for text truncation */}
+            <Heading size="md" color="gray.800" noOfLines={1}> {/* Added noOfLines */}
               {driverName}
             </Heading>
 
-            <HStack spacing={4}>
-              <HStack spacing={2}>
-                <Icon as={FaPhone} color="gray.500" boxSize={4} />
-                <Text fontSize="sm" color="gray.600">
+            <HStack spacing={4} flexWrap="wrap"> {/* Added flexWrap */}
+              <HStack spacing={2} minWidth="0">
+                <Icon as={FaPhone} color="gray.500" boxSize={4} flexShrink={0} />
+                <Text 
+                  fontSize="sm" 
+                  color="gray.600" 
+                  noOfLines={1}
+                  minWidth="0"
+                >
                   {driverPhone}
                 </Text>
               </HStack>
 
-              <HStack spacing={2}>
-                <Icon as={FaEnvelope} color="gray.500" boxSize={4} />
-                <Text fontSize="sm" color="gray.600">
+              <HStack spacing={2} minWidth="0">
+                <Icon as={FaEnvelope} color="gray.500" boxSize={4} flexShrink={0} />
+                <Text 
+                  fontSize="sm" 
+                  color="gray.600" 
+                  noOfLines={1}
+                  minWidth="0"
+                >
                   {driverEmail}
                 </Text>
               </HStack>
             </HStack>
 
-            <HStack spacing={3}>
+            <HStack spacing={3} flexWrap="wrap" width="100%"> {/* Added width="100%" */}
               <Badge 
                 colorScheme="orange" 
                 variant="subtle" 
@@ -308,6 +321,8 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
                 py={1}
                 fontSize="xs"
                 fontWeight="semibold"
+                whiteSpace="nowrap"
+                flexShrink={0}
               >
                 Pending Approval
               </Badge>
@@ -319,6 +334,8 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
                 leftIcon={<FaFileAlt />}
                 onClick={handleViewDocuments}
                 borderRadius="full"
+                whiteSpace="nowrap"
+                flexShrink={0}
               >
                 {getDocumentStatus()}
               </Button>
@@ -329,25 +346,30 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
         <Divider borderColor="gray.200" my={4} />
 
         {/* Vehicle Information */}
-        <VStack align="start" spacing={3} mb={4}>
-          <HStack spacing={2}>
-            <Icon as={FaCar} color="brand.500" boxSize={5} />
-            <Text fontWeight="semibold" color="gray.700">
+        <VStack align="start" spacing={3} mb={4} width="100%">
+          <HStack spacing={2} width="100%">
+            <Icon as={FaCar} color="brand.500" boxSize={5} flexShrink={0} />
+            <Text fontWeight="semibold" color="gray.700" noOfLines={1}>
               Vehicle Information
             </Text>
           </HStack>
           
-          <HStack spacing={3}>
-            <Icon as={FaMotorcycle} color="gray.500" boxSize={4} />
-            <Text fontSize="sm" color="gray.600">
+          <HStack spacing={3} width="100%">
+            <Icon as={FaMotorcycle} color="gray.500" boxSize={4} flexShrink={0} />
+            <Text 
+              fontSize="sm" 
+              color="gray.600" 
+              noOfLines={2}  /* Increased to 2 lines */
+              wordBreak="break-word" /* Added for long text */
+            >
               {vehicleInfo}
             </Text>
           </HStack>
           
           {driver.vehicle?.color && (
-            <HStack spacing={3}>
-              <Icon as={FaPalette} color="gray.500" boxSize={4} />
-              <Text fontSize="sm" color="gray.600">
+            <HStack spacing={3} width="100%">
+              <Icon as={FaPalette} color="gray.500" boxSize={4} flexShrink={0} />
+              <Text fontSize="sm" color="gray.600" noOfLines={1}>
                 Color: {driver.vehicle.color}
               </Text>
             </HStack>
@@ -355,25 +377,25 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
         </VStack>
 
         {/* Application Details */}
-        <VStack align="start" spacing={3} mb={6}>
-          <HStack spacing={2}>
-            <Icon as={FaClipboardCheck} color="brand.500" boxSize={5} />
-            <Text fontWeight="semibold" color="gray.700">
+        <VStack align="start" spacing={3} mb={6} width="100%">
+          <HStack spacing={2} width="100%">
+            <Icon as={FaClipboardCheck} color="brand.500" boxSize={5} flexShrink={0} />
+            <Text fontWeight="semibold" color="gray.700" noOfLines={1}>
               Application Details
             </Text>
           </HStack>
           
-          <HStack spacing={3}>
-            <Icon as={FaCalendar} color="gray.500" boxSize={4} />
-            <Text fontSize="sm" color="gray.600">
+          <HStack spacing={3} width="100%">
+            <Icon as={FaCalendar} color="gray.500" boxSize={4} flexShrink={0} />
+            <Text fontSize="sm" color="gray.600" noOfLines={1}>
               Applied: {formatDate(driver.created_at)}
             </Text>
           </HStack>
           
           {driver.rating && (
-            <HStack spacing={3}>
-              <Icon as={FaStar} color="yellow.500" boxSize={4} />
-              <Text fontSize="sm" color="gray.600">
+            <HStack spacing={3} width="100%">
+              <Icon as={FaStar} color="yellow.500" boxSize={4} flexShrink={0} />
+              <Text fontSize="sm" color="gray.600" noOfLines={1}>
                 Rating: {driver.rating.toFixed(1)}/5.0
               </Text>
             </HStack>
@@ -383,7 +405,7 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
         <Divider borderColor="gray.200" my={4} />
 
         {/* Actions */}
-        <HStack spacing={4}>
+        <HStack spacing={4} width="100%">
           <Button
             leftIcon={<FaTimesCircle />}
             colorScheme="red"
@@ -398,6 +420,7 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
               transform: 'translateY(-1px)',
               boxShadow: 'md',
             }}
+            whiteSpace="nowrap"
           >
             Reject
           </Button>
@@ -416,6 +439,7 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
               transform: 'translateY(-1px)',
               boxShadow: 'md',
             }}
+            whiteSpace="nowrap"
           >
             Approve
           </Button>

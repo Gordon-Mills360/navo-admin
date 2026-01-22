@@ -79,7 +79,8 @@ export default function Drivers() {
             email,
             phone,
             created_at,
-            is_active
+            is_active,
+            account_status
           ),
           vehicle:driver_vehicles (*)
         `)
@@ -102,7 +103,7 @@ export default function Drivers() {
           phone: driver.profile?.phone || '',
           created_at: driver.created_at,
           is_active: driver.profile?.is_active || false,
-          is_driver_approved: driver.approved || false,
+          account_status: driver.profile?.account_status || 'pending', // Changed from is_driver_approved to account_status
           approved_at: driver.approved_at,
           rejected: driver.rejected || false,
           rejection_reason: driver.rejection_reason,
@@ -173,7 +174,7 @@ export default function Drivers() {
           return {
             ...driver,
             full_name: driver.full_name || 'Unknown',
-            is_driver_approved: driver.is_driver_approved || false,
+            account_status: driver.account_status || 'pending', // Changed from is_driver_approved to account_status
             suspended: driverData?.suspended || false,
             suspension_reason: driverData?.suspension_reason,
             online: driverData?.online || false,
@@ -210,11 +211,11 @@ export default function Drivers() {
   const calculateStats = (driversList) => {
     const stats = {
       total: driversList.length,
-      pending: driversList.filter(d => !d.is_driver_approved && !d.rejected && !d.suspended).length,
-      approved: driversList.filter(d => d.is_driver_approved && !d.suspended).length,
+      pending: driversList.filter(d => d.account_status === 'pending' && !d.rejected && !d.suspended).length,
+      approved: driversList.filter(d => d.account_status === 'approved' && !d.suspended).length,
       suspended: driversList.filter(d => d.suspended).length,
       online: driversList.filter(d => d.online && !d.suspended).length,
-      offline: driversList.filter(d => !d.online && !d.suspended && d.is_driver_approved).length
+      offline: driversList.filter(d => !d.online && !d.suspended && d.account_status === 'approved').length
     };
     setStats(stats);
   };
@@ -281,11 +282,11 @@ export default function Drivers() {
         if (updateError) throw updateError;
       }
       
-      // Update profile
+      // Update profile - changed from is_driver_approved to account_status
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
-          is_driver_approved: true,
+          account_status: 'approved', // Changed from is_driver_approved: true
           is_active: true
         })
         .eq('id', driverId);
@@ -298,7 +299,7 @@ export default function Drivers() {
           driver.id === driverId || driver.user_id === driverId
             ? {
                 ...driver,
-                is_driver_approved: true,
+                account_status: 'approved', // Changed from is_driver_approved: true
                 suspended: false,
                 rejection_reason: null,
                 approved_at: new Date().toISOString()
@@ -358,11 +359,11 @@ export default function Drivers() {
           .eq('user_id', driverId);
       }
       
-      // Update profile
+      // Update profile - changed from is_driver_approved to account_status
       await supabase
         .from('profiles')
         .update({
-          is_driver_approved: false,
+          account_status: 'rejected', // Changed from is_driver_approved: false
           is_active: false
         })
         .eq('id', driverId);
@@ -373,7 +374,7 @@ export default function Drivers() {
           driver.id === driverId || driver.user_id === driverId
             ? {
                 ...driver,
-                is_driver_approved: false,
+                account_status: 'rejected', // Changed from is_driver_approved: false
                 rejected: true,
                 rejection_reason: rejectionReason || 'Rejected by admin',
                 rejected_at: new Date().toISOString()
@@ -561,15 +562,15 @@ export default function Drivers() {
     
     // Apply status filter
     if (filter === 'pending') {
-      return matchesSearch && !driver.is_driver_approved && !driver.rejected && !driver.suspended;
+      return matchesSearch && driver.account_status === 'pending' && !driver.rejected && !driver.suspended;
     } else if (filter === 'approved') {
-      return matchesSearch && driver.is_driver_approved && !driver.suspended;
+      return matchesSearch && driver.account_status === 'approved' && !driver.suspended;
     } else if (filter === 'suspended') {
       return matchesSearch && driver.suspended;
     } else if (filter === 'online') {
       return matchesSearch && driver.online && !driver.suspended;
     } else if (filter === 'offline') {
-      return matchesSearch && !driver.online && !driver.suspended && driver.is_driver_approved;
+      return matchesSearch && !driver.online && !driver.suspended && driver.account_status === 'approved';
     }
     
     return matchesSearch; // 'all' filter
@@ -664,7 +665,7 @@ export default function Drivers() {
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
             {filteredDrivers.map((driver) => {
-              if (filter === 'pending' && !driver.is_driver_approved && !driver.rejected && !driver.suspended) {
+              if (filter === 'pending' && driver.account_status === 'pending' && !driver.rejected && !driver.suspended) {
                 return (
                   <DriverApprovalCard
                     key={driver.id || driver.user_id}
