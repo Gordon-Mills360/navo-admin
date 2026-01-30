@@ -74,7 +74,7 @@ const TopNav = () => {
           color="gray.600"
           mt={1}
         >
-          Manage Your Rides Platform
+          NAVO
         </Text>
       </Box>
 

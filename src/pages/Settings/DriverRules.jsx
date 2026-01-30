@@ -1204,7 +1204,7 @@ const DriverRules = () => {
                                 </Td>
                                 <Td>
                                   <Text fontSize="sm">
-                                    {driver.total_rides || 0}
+                                    {driver.total_rides_completed || 0}
                                   </Text>
                                 </Td>
                                 <Td>

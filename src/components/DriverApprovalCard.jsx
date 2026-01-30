@@ -41,7 +41,7 @@ import {
   FaCar,
   FaClipboardCheck,
 } from 'react-icons/fa';
-import { supabase } from "../services/supabase";
+import { supabaseAdmin } from "../services/supabase";
 
 const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
   const [loading, setLoading] = useState(false);
@@ -72,8 +72,8 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
       if (onApprove) {
         await onApprove(driverId);
       } else {
-        const { error } = await supabase
-          .from('drivers')
+        const { error } = await supabaseAdmin
+          .from('profiles')
           .update({
             approved: true,
             approved_at: new Date().toISOString(),
@@ -86,7 +86,7 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
 
         if (error) throw error;
 
-        await supabase
+        await supabaseAdmin
           .from('profiles')
           .update({
             is_driver_approved: true,
@@ -130,8 +130,8 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
       if (onReject) {
         await onReject(rejectionReason);
       } else {
-        const { error } = await supabase
-          .from('drivers')
+        const { error } = await supabaseAdmin
+          .from('profiles')
           .update({
             approved: false,
             rejected: true,
@@ -142,7 +142,7 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
 
         if (error) throw error;
 
-        await supabase
+        await supabaseAdmin
           .from('profiles')
           .update({
             is_driver_approved: false,
@@ -241,9 +241,9 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
       boxShadow="sm" 
       borderWidth="1px" 
       borderColor="gray.200"
-      width="100%"  // Ensure full width
-      maxWidth="420px"  // Increased from default for better content fit
-      minWidth="380px"  // Minimum width to prevent squeezing
+      width="100%"
+      maxWidth="420px"
+      minWidth="380px"
       _hover={{ 
         boxShadow: 'lg',
         transform: 'translateY(-2px)',
@@ -281,12 +281,12 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
             )}
           </Box>
 
-          <VStack align="start" spacing={2} flex={1} minWidth="0"> {/* Added minWidth="0" for text truncation */}
-            <Heading size="md" color="gray.800" noOfLines={1}> {/* Added noOfLines */}
+          <VStack align="start" spacing={2} flex={1} minWidth="0">
+            <Heading size="md" color="gray.800" noOfLines={1}>
               {driverName}
             </Heading>
 
-            <HStack spacing={4} flexWrap="wrap"> {/* Added flexWrap */}
+            <HStack spacing={4} flexWrap="wrap">
               <HStack spacing={2} minWidth="0">
                 <Icon as={FaPhone} color="gray.500" boxSize={4} flexShrink={0} />
                 <Text 
@@ -312,7 +312,7 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
               </HStack>
             </HStack>
 
-            <HStack spacing={3} flexWrap="wrap" width="100%"> {/* Added width="100%" */}
+            <HStack spacing={3} flexWrap="wrap" width="100%">
               <Badge 
                 colorScheme="orange" 
                 variant="subtle" 
@@ -359,8 +359,8 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
             <Text 
               fontSize="sm" 
               color="gray.600" 
-              noOfLines={2}  /* Increased to 2 lines */
-              wordBreak="break-word" /* Added for long text */
+              noOfLines={2}
+              wordBreak="break-word"
             >
               {vehicleInfo}
             </Text>
@@ -392,11 +392,18 @@ const DriverApprovalCard = ({ driver, onApprove, onReject, refreshList }) => {
             </Text>
           </HStack>
           
-          {driver.rating && (
+          {driver.rating && driver.rating > 0 ? (
             <HStack spacing={3} width="100%">
               <Icon as={FaStar} color="yellow.500" boxSize={4} flexShrink={0} />
               <Text fontSize="sm" color="gray.600" noOfLines={1}>
                 Rating: {driver.rating.toFixed(1)}/5.0
+              </Text>
+            </HStack>
+          ) : (
+            <HStack spacing={3} width="100%">
+              <Icon as={FaStar} color="gray.300" boxSize={4} flexShrink={0} />
+              <Text fontSize="sm" color="gray.500" noOfLines={1}>
+                No ratings yet
               </Text>
             </HStack>
           )}

@@ -600,7 +600,7 @@ const Dashboard = () => {
   return (
     <PageContainer
       title="Dashboard Overview"
-      subtitle="Real-time insights and analytics for your tricycle ride platform"
+      subtitle="Real-time insights and analytics for your ride platform"
       action={
         <Button
           leftIcon={<FaRedo />}
@@ -891,14 +891,18 @@ const Dashboard = () => {
                         Joined {formatDate(user.created_at)} • {user.role}
                       </Text>
                     </Box>
-                    {user.role === 'driver' && user.rating && (
+                    {user.role === 'driver' && user.rating && user.rating > 0 ? (
                       <HStack spacing={1}>
                         <Icon as={FaStar} color="yellow.500" size="xs" />
-                        <Text fontSize="xs" color="gray.600">
+                        <Text fontSize="xs" color="gray.600" fontWeight="medium">
                           {user.rating.toFixed(1)}
                         </Text>
                       </HStack>
-                    )}
+                    ) : user.role === 'driver' ? (
+                      <Text fontSize="xs" color="gray.400" fontStyle="italic">
+                        No rating
+                      </Text>
+                    ) : null}
                   </Flex>
                 </Box>
               )) : (

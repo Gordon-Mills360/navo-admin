@@ -102,7 +102,7 @@ const Login = () => {
             <Heading size="lg" color="blue.600" mb={2}>
               NAVO Admin
             </Heading>
-            <Text color="gray.600">Tricycle Ride Platform Dashboard</Text>
+            <Text color="gray.600">Ride Platform Dashboard</Text>
           </Box>
 
           {/* Login Form */}

@@ -86,7 +86,8 @@ import {
 } from '@chakra-ui/icons';
 import { FiFilter, FiUser, FiUserCheck, FiDollarSign } from 'react-icons/fi';
 import { supabase } from '../services/supabase';
-import PaymentCard from '../components/PaymentCard';
+import Payouts from './Payouts';
+import Paystack from './Paystack';
 
 // Constants
 const ITEMS_PER_PAGE = 10;
@@ -318,7 +319,7 @@ const Payments = () => {
     };
   }, [filters.commissionRate]);
 
-  // Verify PayStack payment
+  // Verify PayStack payment - REAL API INTEGRATION
   const verifyPayStackPayment = useCallback(async (paymentReference) => {
     if (!paymentReference) {
       toast({
@@ -334,27 +335,48 @@ const Payments = () => {
     try {
       setVerifyingPayment(paymentReference);
       
-      toast({
-        title: 'Verification Info',
-        description: 'Payment verification would be integrated with PayStack API',
-        status: 'info',
-        duration: 3000,
-        isClosable: true,
+      // REAL API CALL TO PAYSTACK
+      const response = await fetch(`/api/verify-payment/${paymentReference}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      toast({
-        title: 'Payment Verified',
-        description: `Payment ${paymentReference} has been verified successfully`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-
-      // Refresh payments data
-      await fetchPayments();
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Payment verification failed');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update payment status in database
+        const { error } = await supabase
+          .from('payments')
+          .update({
+            status: result.data.status,
+            verified_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            gateway_response: result.data,
+          })
+          .eq('paystack_reference', paymentReference);
+        
+        if (error) throw error;
+        
+        toast({
+          title: 'Payment Verified',
+          description: `Payment ${paymentReference} has been verified successfully`,
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        });
+        
+        // Refresh payments data
+        await fetchPayments();
+      } else {
+        throw new Error(result.message || 'Verification failed');
+      }
     } catch (error) {
       console.error('Error verifying payment:', error);
       toast({
@@ -413,16 +435,36 @@ const Payments = () => {
     }
   }, [calculateCommissionSplit, filters.commissionRate, formatCurrency, toast]);
 
-  // Fetch payments with simplified query
+  // Fetch payments with REAL DATA
   const fetchPayments = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      // Simple query without joins that cause errors
+      // REAL QUERY - Fetch payments with necessary joins
       const { data, error: fetchError, count } = await supabase
         .from('payments')
-        .select('*', { count: 'exact' })
+        .select(`
+          *,
+          passenger:passenger_id (
+            id,
+            full_name,
+            email,
+            phone
+          ),
+          ride:ride_id (
+         id,
+         estimated_fare,     
+         actual_fare,        
+         pickup_address,     
+         dropoff_address     
+          ),
+          driver:driver_id (
+            id,
+            full_name,
+            email
+          )
+        `, { count: 'exact' })
         .order('created_at', { ascending: false });
       
       if (fetchError) {
@@ -431,7 +473,7 @@ const Payments = () => {
       
       setPayments(data || []);
       
-      // Calculate comprehensive stats
+      // Calculate comprehensive stats from REAL DATA
       const stats = {
         totalAmount: 0,
         totalCommission: 0,
@@ -557,7 +599,10 @@ const Payments = () => {
           payment.paystack_reference?.toLowerCase().includes(searchTerm) ||
           payment.reference_id?.toLowerCase().includes(searchTerm) ||
           payment.transaction_id?.toLowerCase().includes(searchTerm) ||
-          payment.id?.toString().includes(searchTerm)
+          payment.id?.toString().includes(searchTerm) ||
+          payment.user?.full_name?.toLowerCase().includes(searchTerm) ||
+          payment.user?.email?.toLowerCase().includes(searchTerm) ||
+          payment.driver?.full_name?.toLowerCase().includes(searchTerm)
         );
       });
     }
@@ -661,7 +706,7 @@ const Payments = () => {
   // Export to CSV with proper escaping
   const exportToCSV = useCallback(() => {
     try {
-      if (filteredPayments.length === 0) {
+      if (!filteredPayments || filteredPayments.length === 0) {
         toast({
           title: 'No data to export',
           status: 'warning',
@@ -685,6 +730,10 @@ const Payments = () => {
         'Status',
         'Currency',
         'Payment Method',
+        'User Name',
+        'User Email',
+        'Driver Name',
+        'Ride Fare',
       ];
       
       const csvData = filteredPayments.map(payment => {
@@ -705,6 +754,10 @@ const Payments = () => {
           payment.status || '',
           payment.currency || 'GHS',
           payment.payment_method || '',
+          payment.user?.full_name || '',
+          payment.user?.email || '',
+          payment.driver?.full_name || '',
+          payment.ride?.fare || 0,
         ];
       });
       
@@ -884,6 +937,139 @@ const Payments = () => {
     };
   }, [filteredPayments]);
 
+  // Custom PaymentCard component (removed external dependency)
+  const PaymentCard = ({ payment, onVerify, onApplyCommission }) => {
+    const commissionSplit = calculateCommissionSplit(payment.amount);
+    const needsCommission = (!payment.commission || payment.commission === 0) && 
+      payment.status === 'success' && 
+      payment.payment_type === PAYMENT_TYPES.RIDE_PAYMENT;
+    
+    return (
+      <Box bg="white" p={4} borderRadius="lg" shadow="sm" borderLeft="4px" borderColor={getStatusColor(payment.status)}>
+        <Flex justify="space-between" align="start" mb={3}>
+          <Box>
+            <Text fontSize="sm" color="gray.600">
+              {formatDate(payment.created_at, 'short')}
+            </Text>
+            <Text fontWeight="bold" fontSize="lg">
+              {formatCurrency(payment.amount, payment.currency || 'GHS')}
+            </Text>
+          </Box>
+          <Badge 
+            colorScheme={getStatusColor(payment.status)}
+            fontSize="xs"
+            px={2}
+            py={1}
+            borderRadius="full"
+          >
+            {formatStatus(payment.status)}
+          </Badge>
+        </Flex>
+        
+        <Divider my={3} />
+        
+        <SimpleGrid columns={2} spacing={4} mb={4}>
+          <Box>
+            <Text fontSize="xs" color="gray.600">Reference</Text>
+            <Text fontSize="sm" fontFamily="mono">
+              {payment.paystack_reference || payment.reference_id || 'N/A'}
+            </Text>
+          </Box>
+          <Box>
+            <Text fontSize="xs" color="gray.600">Type</Text>
+            <Text fontSize="sm">
+              {payment.payment_type === PAYMENT_TYPES.RIDE_PAYMENT ? 'Ride Payment' : 
+               payment.payment_type === PAYMENT_TYPES.DRIVER_PAYOUT ? 'Driver Payout' : 
+               payment.payment_type || 'Payment'}
+            </Text>
+          </Box>
+        </SimpleGrid>
+        
+        <SimpleGrid columns={2} spacing={4} mb={4}>
+          <Box>
+            <Text fontSize="xs" color="gray.600">Platform Commission</Text>
+            {payment.commission && payment.commission > 0 ? (
+              <Text fontSize="sm" color="green.600" fontWeight="medium">
+                {formatCurrency(payment.commission, payment.currency || 'GHS')}
+                <Text as="span" fontSize="xs" color="gray.600" ml={1}>
+                  ({payment.commission_rate || commissionSplit.platformPercentage}%)
+                </Text>
+              </Text>
+            ) : needsCommission ? (
+              <Button
+                size="xs"
+                colorScheme="yellow"
+                variant="outline"
+                onClick={onApplyCommission}
+              >
+                Apply Commission
+              </Button>
+            ) : (
+              <Text fontSize="sm" color="gray.500">—</Text>
+            )}
+          </Box>
+          <Box>
+            <Text fontSize="xs" color="gray.600">Driver Payout</Text>
+            <Text fontSize="sm" color="blue.600" fontWeight="medium">
+              {formatCurrency(payment.driver_payout || commissionSplit.driverPayout, payment.currency || 'GHS')}
+            </Text>
+          </Box>
+        </SimpleGrid>
+        
+        {payment.user && (
+          <Box mb={3}>
+            <Text fontSize="xs" color="gray.600">User</Text>
+            <Text fontSize="sm">{payment.user.full_name || payment.user.email}</Text>
+          </Box>
+        )}
+        
+        {payment.ride && (
+          <Box mb={3}>
+            <Text fontSize="xs" color="gray.600">Ride</Text>
+            <Text fontSize="sm">Fare: {formatCurrency(payment.ride.fare, 'GHS')}</Text>
+            {payment.ride.pickup_location && (
+              <Text fontSize="xs" color="gray.600">
+                From: {payment.ride.pickup_location}
+              </Text>
+            )}
+          </Box>
+        )}
+        
+        <Flex justify="flex-end" gap={2} mt={4}>
+          <IconButton
+            icon={<ViewIcon />}
+            aria-label="View details"
+            size="sm"
+            variant="ghost"
+            onClick={() => viewPaymentDetails(payment)}
+          />
+          
+          {payment.paystack_reference && (
+            <IconButton
+              icon={<CheckCircleIcon />}
+              aria-label="Verify payment"
+              size="sm"
+              variant="ghost"
+              colorScheme="green"
+              onClick={onVerify}
+            />
+          )}
+          
+          {needsCommission && (
+            <IconButton
+              icon={<EditIcon />}
+              aria-label="Apply commission"
+              size="sm"
+              variant="ghost"
+              colorScheme="yellow"
+              onClick={onApplyCommission}
+            />
+          )}
+        </Flex>
+      </Box>
+    );
+  };
+
   // Render loading state
   if (isLoading) {
     return (
@@ -952,7 +1138,7 @@ const Payments = () => {
             leftIcon={<DownloadIcon />}
             colorScheme="blue"
             onClick={exportToCSV}
-            isDisabled={filteredPayments.length === 0}
+            isDisabled={!filteredPayments || filteredPayments.length === 0}
           >
             Export CSV
           </Button>
@@ -1099,14 +1285,16 @@ const Payments = () => {
         </Box>
       </SimpleGrid>
       
-      {/* Payment Type Tabs */}
+      {/* Financial System Tabs */}
       <Box bg="white" borderRadius="lg" shadow="sm" mb={6}>
         <Tabs 
           variant="enclosed" 
           colorScheme="blue"
           onChange={(index) => {
-            const tabs = ['all', 'passenger', 'driver'];
-            setPaymentTypeTab(tabs[index]);
+            const tabs = ['all', 'passenger', 'driver', 'payouts', 'paystack'];
+            if (index <= 2) {
+              setPaymentTypeTab(tabs[index]);
+            }
             setCurrentPage(1);
           }}
         >
@@ -1114,343 +1302,402 @@ const Payments = () => {
             <Tab>All Payments</Tab>
             <Tab>Passenger Payments</Tab>
             <Tab>Driver Payouts</Tab>
+            <Tab>Payout Management</Tab>
+            <Tab>Paystack Reconciliation</Tab>
           </TabList>
-        </Tabs>
-      </Box>
-      
-      {/* Filters */}
-      <Box bg="white" p={4} borderRadius="lg" shadow="sm" mb={6} width="100%">
-        <Flex justify="space-between" align="center" mb={4}>
-          <Text fontWeight="medium">Filters</Text>
-          <Flex gap={2}>
-            <IconButton
-              icon={<FiFilter />}
-              aria-label="Advanced filters"
-              size="sm"
-              onClick={onFilterOpen}
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              leftIcon={<CloseIcon />}
-              onClick={clearFilters}
-            >
-              Clear All
-            </Button>
-          </Flex>
-        </Flex>
-        
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} width="100%">
-          <InputGroup>
-            <InputLeftElement pointerEvents="none">
-              <SearchIcon color="gray.300" />
-            </InputLeftElement>
-            <Input
-              placeholder="Search payments..."
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-              width="100%"
-            />
-          </InputGroup>
           
-          <Select
-            value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-            width="100%"
-          >
-            {STATUS_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          
-          <Wrap spacing={2} width="100%">
-            <WrapItem flex="1" minW="150px">
-              <InputGroup width="100%">
-                <InputLeftElement pointerEvents="none">
-                  <CalendarIcon color="gray.300" fontSize="sm" />
-                </InputLeftElement>
-                <Input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                  placeholder="From"
-                  width="100%"
-                  fontSize="sm"
-                />
-              </InputGroup>
-            </WrapItem>
-            
-            <WrapItem flex="1" minW="150px">
-              <InputGroup width="100%">
-                <InputLeftElement pointerEvents="none">
-                  <CalendarIcon color="gray.300" fontSize="sm" />
-                </InputLeftElement>
-                <Input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                  placeholder="To"
-                  width="100%"
-                  fontSize="sm"
-                />
-              </InputGroup>
-            </WrapItem>
-          </Wrap>
-        </SimpleGrid>
-        
-        {/* Advanced filters row */}
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mt={4} width="100%">
-          <Wrap spacing={2} width="100%">
-            <WrapItem flex="1" minW="120px">
-              <Input
-                type="number"
-                placeholder="Min Amount"
-                value={filters.minAmount}
-                onChange={(e) => handleFilterChange('minAmount', e.target.value)}
-                min="0"
-                step="0.01"
-                width="100%"
-              />
-            </WrapItem>
-            <WrapItem flex="1" minW="120px">
-              <Input
-                type="number"
-                placeholder="Max Amount"
-                value={filters.maxAmount}
-                onChange={(e) => handleFilterChange('maxAmount', e.target.value)}
-                min="0"
-                step="0.01"
-                width="100%"
-              />
-            </WrapItem>
-          </Wrap>
-          
-          <Select
-            value={filters.currency}
-            onChange={(e) => handleFilterChange('currency', e.target.value)}
-            width="100%"
-          >
-            <option value="all">All Currencies</option>
-            <option value="GHS">Ghana Cedis (GHS)</option>
-            <option value="USD">US Dollars (USD)</option>
-            <option value="EUR">Euros (EUR)</option>
-          </Select>
-          
-          <Button
-            colorScheme="blue"
-            variant="outline"
-            onClick={() => {
-              // Preview commission for filtered payments
-              const totalFilteredAmount = filteredPayments.reduce((sum, p) => 
-                sum + (parseFloat(p.amount) || 0), 0
-              );
-              const commission = calculateCommissionSplit(totalFilteredAmount);
+          <TabPanels>
+            <TabPanel>
+              {/* All Payments Content */}
+              {/* Filters */}
+              <Box bg="white" p={4} borderRadius="lg" shadow="sm" mb={6} width="100%">
+                <Flex justify="space-between" align="center" mb={4}>
+                  <Text fontWeight="medium">Filters</Text>
+                  <Flex gap={2}>
+                    <IconButton
+                      icon={<FiFilter />}
+                      aria-label="Advanced filters"
+                      size="sm"
+                      onClick={onFilterOpen}
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      leftIcon={<CloseIcon />}
+                      onClick={clearFilters}
+                    >
+                      Clear All
+                    </Button>
+                  </Flex>
+                </Flex>
+                
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} width="100%">
+                  <InputGroup>
+                    <InputLeftElement pointerEvents="none">
+                      <SearchIcon color="gray.300" />
+                    </InputLeftElement>
+                    <Input
+                      placeholder="Search payments..."
+                      value={filters.search}
+                      onChange={(e) => handleFilterChange('search', e.target.value)}
+                      width="100%"
+                    />
+                  </InputGroup>
+                  
+                  <Select
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    width="100%"
+                  >
+                    {STATUS_OPTIONS.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
+                  
+                  <Wrap spacing={2} width="100%">
+                    <WrapItem flex="1" minW="150px">
+                      <InputGroup width="100%">
+                        <InputLeftElement pointerEvents="none">
+                          <CalendarIcon color="gray.300" fontSize="sm" />
+                        </InputLeftElement>
+                        <Input
+                          type="date"
+                          value={filters.startDate}
+                          onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                          placeholder="From"
+                          width="100%"
+                          fontSize="sm"
+                        />
+                      </InputGroup>
+                    </WrapItem>
+                    
+                    <WrapItem flex="1" minW="150px">
+                      <InputGroup width="100%">
+                        <InputLeftElement pointerEvents="none">
+                          <CalendarIcon color="gray.300" fontSize="sm" />
+                        </InputLeftElement>
+                        <Input
+                          type="date"
+                          value={filters.endDate}
+                          onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                          placeholder="To"
+                          width="100%"
+                          fontSize="sm"
+                        />
+                      </InputGroup>
+                    </WrapItem>
+                  </Wrap>
+                </SimpleGrid>
+                
+                {/* Advanced filters row */}
+                <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4} mt={4} width="100%">
+                  <Wrap spacing={2} width="100%">
+                    <WrapItem flex="1" minW="120px">
+                      <Input
+                        type="number"
+                        placeholder="Min Amount"
+                        value={filters.minAmount}
+                        onChange={(e) => handleFilterChange('minAmount', e.target.value)}
+                        min="0"
+                        step="0.01"
+                        width="100%"
+                      />
+                    </WrapItem>
+                    <WrapItem flex="1" minW="120px">
+                      <Input
+                        type="number"
+                        placeholder="Max Amount"
+                        value={filters.maxAmount}
+                        onChange={(e) => handleFilterChange('maxAmount', e.target.value)}
+                        min="0"
+                        step="0.01"
+                        width="100%"
+                      />
+                    </WrapItem>
+                  </Wrap>
+                  
+                  <Select
+                    value={filters.currency}
+                    onChange={(e) => handleFilterChange('currency', e.target.value)}
+                    width="100%"
+                  >
+                    <option value="all">All Currencies</option>
+                    <option value="GHS">Ghana Cedis (GHS)</option>
+                    <option value="USD">US Dollars (USD)</option>
+                    <option value="EUR">Euros (EUR)</option>
+                  </Select>
+                  
+                  <Button
+                    colorScheme="blue"
+                    variant="outline"
+                    onClick={() => {
+                      // Preview commission for filtered payments
+                      const totalFilteredAmount = filteredPayments.reduce((sum, p) => 
+                        sum + (parseFloat(p.amount) || 0), 0
+                      );
+                      const commission = calculateCommissionSplit(totalFilteredAmount);
+                      
+                      toast({
+                        title: 'Commission Preview',
+                        description: `Filtered payments: ${formatCurrency(totalFilteredAmount, 'GHS')} | Commission: ${formatCurrency(commission.platformCommission, 'GHS')} (${commission.platformPercentage}%)`,
+                        status: 'info',
+                        duration: 5000,
+                        isClosable: true,
+                      });
+                    }}
+                    width="100%"
+                  >
+                    Preview Commission
+                  </Button>
+                </SimpleGrid>
+              </Box>
               
-              toast({
-                title: 'Commission Preview',
-                description: `Filtered payments: ${formatCurrency(totalFilteredAmount, 'GHS')} | Commission: ${formatCurrency(commission.platformCommission, 'GHS')} (${commission.platformPercentage}%)`,
-                status: 'info',
-                duration: 5000,
-                isClosable: true,
-              });
-            }}
-            width="100%"
-          >
-            Preview Commission
-          </Button>
-        </SimpleGrid>
-      </Box>
-      
-      {/* Results Summary */}
-      <Flex justify="space-between" align="center" mb={4} width="100%">
-        <Text color="gray.600">
-          Showing {Math.min(paginatedPayments.length, ITEMS_PER_PAGE)} of {filteredPayments.length} payments
-          {paymentTypeTab !== 'all' && ` (${paymentTypeTab})`}
-          {filters.search && ` for "${filters.search}"`}
-        </Text>
-        
-        {totalPages > 1 && (
-          <Flex align="center" gap={2}>
-            <Button
-              size="sm"
-              leftIcon={<ArrowBackIcon />}
-              onClick={() => handlePageChange(currentPage - 1)}
-              isDisabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <Text fontSize="sm">
-              Page {currentPage} of {totalPages}
-            </Text>
-            <Button
-              size="sm"
-              rightIcon={<ArrowForwardIcon />}
-              onClick={() => handlePageChange(currentPage + 1)}
-              isDisabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </Flex>
-        )}
-      </Flex>
-      
-      {/* Table View */}
-      {viewMode === 'table' ? (
-        <Box bg="white" borderRadius="lg" shadow="sm" overflow="auto" mb={6} width="100%">
-          <Table variant="simple" size="md">
-            <Thead bg="gray.50">
-              <Tr>
-                <Th>Date & Time</Th>
-                <Th>Reference</Th>
-                <Th isNumeric>Amount</Th>
-                <Th isNumeric>Commission</Th>
-                <Th isNumeric>Driver Payout</Th>
-                <Th>Status</Th>
-                <Th>Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {paginatedPayments.length === 0 ? (
-                <Tr>
-                  <Td colSpan={7} textAlign="center" py={10}>
-                    <Box>
-                      <Text mb={2}>No payments found</Text>
-                      <Text fontSize="sm" color="gray.600">
+              {/* Results Summary */}
+              <Flex justify="space-between" align="center" mb={4} width="100%">
+                <Text color="gray.600">
+                  Showing {Math.min(paginatedPayments.length, ITEMS_PER_PAGE)} of {filteredPayments.length} payments
+                  {paymentTypeTab !== 'all' && ` (${paymentTypeTab})`}
+                  {filters.search && ` for "${filters.search}"`}
+                </Text>
+                
+                {totalPages > 1 && (
+                  <Flex align="center" gap={2}>
+                    <Button
+                      size="sm"
+                      leftIcon={<ArrowBackIcon />}
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      isDisabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    <Text fontSize="sm">
+                      Page {currentPage} of {totalPages}
+                    </Text>
+                    <Button
+                      size="sm"
+                      rightIcon={<ArrowForwardIcon />}
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      isDisabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </Flex>
+                )}
+              </Flex>
+              
+              {/* Table View */}
+              {viewMode === 'table' ? (
+                <Box bg="white" borderRadius="lg" shadow="sm" overflow="auto" mb={6} width="100%">
+                  <Table variant="simple" size="md">
+                    <Thead bg="gray.50">
+                      <Tr>
+                        <Th>Date & Time</Th>
+                        <Th>Reference</Th>
+                        <Th isNumeric>Amount</Th>
+                        <Th isNumeric>Commission</Th>
+                        <Th isNumeric>Driver Payout</Th>
+                        <Th>Status</Th>
+                        <Th>Actions</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {paginatedPayments.length === 0 ? (
+                        <Tr>
+                          <Td colSpan={7} textAlign="center" py={10}>
+                            <Box>
+                              <Text mb={2}>No payments found</Text>
+                              <Text fontSize="sm" color="gray.600">
+                                Try adjusting your filters or search terms
+                              </Text>
+                            </Box>
+                          </Td>
+                        </Tr>
+                      ) : (
+                        paginatedPayments.map((payment) => {
+                          const commissionSplit = calculateCommissionSplit(payment.amount);
+                          const needsCommission = (!payment.commission || payment.commission === 0) && 
+                            payment.status === 'success' && 
+                            payment.payment_type === PAYMENT_TYPES.RIDE_PAYMENT;
+                          
+                          return (
+                            <Tr key={payment.id} _hover={{ bg: 'gray.50' }}>
+                              <Td>
+                                <Text fontSize="sm">
+                                  {formatDate(payment.created_at, 'short')}
+                                </Text>
+                              </Td>
+                              <Td>
+                                <Tooltip label={payment.paystack_reference || payment.reference_id || 'No reference'}>
+                                  <Text 
+                                    fontSize="sm" 
+                                    fontFamily="mono" 
+                                    isTruncated 
+                                    maxW="150px"
+                                  >
+                                    {payment.paystack_reference || payment.reference_id || '—'}
+                                  </Text>
+                                </Tooltip>
+                              </Td>
+                              <Td isNumeric fontWeight="bold" fontSize="sm">
+                                {formatCurrency(payment.amount, payment.currency || 'GHS')}
+                              </Td>
+                              <Td isNumeric fontSize="sm">
+                                {payment.commission && payment.commission > 0 ? (
+                                  <Text color="green.600" fontWeight="medium">
+                                    {formatCurrency(payment.commission, payment.currency || 'GHS')}
+                                  </Text>
+                                ) : needsCommission ? (
+                                  <Tooltip label="Click to apply commission">
+                                    <Button
+                                      size="xs"
+                                      colorScheme="yellow"
+                                      variant="outline"
+                                      onClick={() => processCommissionSplit(payment.id, payment.amount)}
+                                    >
+                                      Apply
+                                    </Button>
+                                  </Tooltip>
+                                ) : (
+                                  <Text color="gray.500">—</Text>
+                                )}
+                              </Td>
+                              <Td isNumeric fontSize="sm">
+                                <Text color="blue.600" fontWeight="medium">
+                                  {formatCurrency(payment.driver_payout || commissionSplit.driverPayout, payment.currency || 'GHS')}
+                                </Text>
+                              </Td>
+                              <Td>
+                                <Badge 
+                                  colorScheme={getStatusColor(payment.status)}
+                                  fontSize="xs"
+                                  px={2}
+                                  py={1}
+                                  borderRadius="full"
+                                >
+                                  {formatStatus(payment.status)}
+                                </Badge>
+                              </Td>
+                              <Td>
+                                <HStack spacing={2}>
+                                  <IconButton
+                                    icon={<ViewIcon />}
+                                    aria-label="View details"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => viewPaymentDetails(payment)}
+                                  />
+                                  
+                                  {payment.paystack_reference && (
+                                    <IconButton
+                                      icon={<CheckCircleIcon />}
+                                      aria-label="Verify payment"
+                                      size="sm"
+                                      variant="ghost"
+                                      colorScheme="green"
+                                      onClick={() => handleVerification(payment)}
+                                      isLoading={verifyingPayment === payment.paystack_reference}
+                                    />
+                                  )}
+                                  
+                                  {needsCommission && (
+                                    <IconButton
+                                      icon={<EditIcon />}
+                                      aria-label="Apply commission"
+                                      size="sm"
+                                      variant="ghost"
+                                      colorScheme="yellow"
+                                      onClick={() => processCommissionSplit(payment.id, payment.amount)}
+                                    />
+                                  )}
+                                </HStack>
+                              </Td>
+                            </Tr>
+                          );
+                        })
+                      )}
+                    </Tbody>
+                  </Table>
+                </Box>
+              ) : (
+                /* Card View */
+                <Flex direction="column" gap={4} mb={6} width="100%">
+                  {paginatedPayments.length === 0 ? (
+                    <Box bg="white" p={10} borderRadius="lg" shadow="sm" textAlign="center" width="100%">
+                      <Text mb={2} fontSize="lg">No payments found</Text>
+                      <Text color="gray.600">
                         Try adjusting your filters or search terms
                       </Text>
                     </Box>
-                  </Td>
-                </Tr>
-              ) : (
-                paginatedPayments.map((payment) => {
-                  const commissionSplit = calculateCommissionSplit(payment.amount);
-                  const needsCommission = (!payment.commission || payment.commission === 0) && 
-                    payment.status === 'success' && 
-                    payment.payment_type === PAYMENT_TYPES.RIDE_PAYMENT;
-                  
-                  return (
-                    <Tr key={payment.id} _hover={{ bg: 'gray.50' }}>
-                      <Td>
-                        <Text fontSize="sm">
-                          {formatDate(payment.created_at, 'short')}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Tooltip label={payment.paystack_reference || payment.reference_id || 'No reference'}>
-                          <Text 
-                            fontSize="sm" 
-                            fontFamily="mono" 
-                            isTruncated 
-                            maxW="150px"
-                          >
-                            {payment.paystack_reference || payment.reference_id || '—'}
-                          </Text>
-                        </Tooltip>
-                      </Td>
-                      <Td isNumeric fontWeight="bold" fontSize="sm">
-                        {formatCurrency(payment.amount, payment.currency || 'GHS')}
-                      </Td>
-                      <Td isNumeric fontSize="sm">
-                        {payment.commission && payment.commission > 0 ? (
-                          <Text color="green.600" fontWeight="medium">
-                            {formatCurrency(payment.commission, payment.currency || 'GHS')}
-                          </Text>
-                        ) : needsCommission ? (
-                          <Tooltip label="Click to apply commission">
-                            <Button
-                              size="xs"
-                              colorScheme="yellow"
-                              variant="outline"
-                              onClick={() => processCommissionSplit(payment.id, payment.amount)}
-                            >
-                              Apply
-                            </Button>
-                          </Tooltip>
-                        ) : (
-                          <Text color="gray.500">—</Text>
-                        )}
-                      </Td>
-                      <Td isNumeric fontSize="sm">
-                        <Text color="blue.600" fontWeight="medium">
-                          {formatCurrency(payment.driver_payout || commissionSplit.driverPayout, payment.currency || 'GHS')}
-                        </Text>
-                      </Td>
-                      <Td>
-                        <Badge 
-                          colorScheme={getStatusColor(payment.status)}
-                          fontSize="xs"
-                          px={2}
-                          py={1}
-                          borderRadius="full"
-                        >
-                          {formatStatus(payment.status)}
-                        </Badge>
-                      </Td>
-                      <Td>
-                        <HStack spacing={2}>
-                          <IconButton
-                            icon={<ViewIcon />}
-                            aria-label="View details"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => viewPaymentDetails(payment)}
-                          />
-                          
-                          {payment.paystack_reference && (
-                            <IconButton
-                              icon={<CheckCircleIcon />}
-                              aria-label="Verify payment"
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="green"
-                              onClick={() => handleVerification(payment)}
-                              isLoading={verifyingPayment === payment.paystack_reference}
-                            />
-                          )}
-                          
-                          {needsCommission && (
-                            <IconButton
-                              icon={<EditIcon />}
-                              aria-label="Apply commission"
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="yellow"
-                              onClick={() => processCommissionSplit(payment.id, payment.amount)}
-                            />
-                          )}
-                        </HStack>
-                      </Td>
-                    </Tr>
-                  );
-                })
+                  ) : (
+                    paginatedPayments.map((payment) => (
+                      <PaymentCard 
+                        key={payment.id} 
+                        payment={payment}
+                        onVerify={() => handleVerification(payment)}
+                        onApplyCommission={() => processCommissionSplit(payment.id, payment.amount)}
+                      />
+                    ))
+                  )}
+                </Flex>
               )}
-            </Tbody>
-          </Table>
-        </Box>
-      ) : (
-        /* Card View */
-        <Flex direction="column" gap={4} mb={6} width="100%">
-          {paginatedPayments.length === 0 ? (
-            <Box bg="white" p={10} borderRadius="lg" shadow="sm" textAlign="center" width="100%">
-              <Text mb={2} fontSize="lg">No payments found</Text>
-              <Text color="gray.600">
-                Try adjusting your filters or search terms
-              </Text>
-            </Box>
-          ) : (
-            paginatedPayments.map((payment) => (
-              <PaymentCard 
-                key={payment.id} 
-                payment={payment}
-                onVerify={() => handleVerification(payment)}
-                onApplyCommission={() => processCommissionSplit(payment.id, payment.amount)}
-              />
-            ))
-          )}
-        </Flex>
-      )}
+            </TabPanel>
+            
+            <TabPanel>
+              {/* Passenger Payments Content */}
+              <Box p={4} bg="white" borderRadius="lg" shadow="sm">
+                <Heading size="md" mb={4}>Passenger Payments</Heading>
+                <Text color="gray.600">
+                  Real-time passenger ride payments loaded from database.
+                </Text>
+                {filteredPayments.filter(p => p.payment_type === PAYMENT_TYPES.RIDE_PAYMENT).length > 0 ? (
+                  <Box mt={4}>
+                    <Text fontWeight="bold">
+                      Total Passenger Payments: {formatCurrency(stats.totalPassengerPayments, 'GHS')}
+                    </Text>
+                    <Text fontSize="sm" color="gray.600">
+                      Showing {filteredPayments.filter(p => p.payment_type === PAYMENT_TYPES.RIDE_PAYMENT).length} payments
+                    </Text>
+                  </Box>
+                ) : (
+                  <Text mt={4} color="gray.500">No passenger payments found</Text>
+                )}
+              </Box>
+            </TabPanel>
+            
+            <TabPanel>
+              {/* Driver Payouts Content */}
+              <Box p={4} bg="white" borderRadius="lg" shadow="sm">
+                <Heading size="md" mb={4}>Driver Payouts</Heading>
+                <Text color="gray.600">
+                  Real-time driver payout transactions loaded from database.
+                </Text>
+                {filteredPayments.filter(p => p.payment_type === PAYMENT_TYPES.DRIVER_PAYOUT).length > 0 ? (
+                  <Box mt={4}>
+                    <Text fontWeight="bold">
+                      Total Driver Payouts: {formatCurrency(stats.totalDriverPayouts, 'GHS')}
+                    </Text>
+                    <Text fontSize="sm" color="gray.600">
+                      Showing {filteredPayments.filter(p => p.payment_type === PAYMENT_TYPES.DRIVER_PAYOUT).length} payouts
+                    </Text>
+                  </Box>
+                ) : (
+                  <Text mt={4} color="gray.500">No driver payouts found</Text>
+                )}
+              </Box>
+            </TabPanel>
+            
+            <TabPanel p={0}>
+              <Payouts />
+            </TabPanel>
+            
+            <TabPanel p={0}>
+              <Paystack />
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
+      </Box>
       
       {/* Advanced Filters Modal */}
       <Modal isOpen={isFilterOpen} onClose={onFilterClose} size="lg">

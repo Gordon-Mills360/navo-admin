@@ -324,7 +324,7 @@ const Login = () => {
             © {new Date().getFullYear()} NAVO Ride Platform
           </Text>
           <Text fontSize="xs" color="gray.400" mt={1}>
-            Version 2.0 • Secure access only
+            Version 1.0 • Secure access only
           </Text>
         </Box>
 

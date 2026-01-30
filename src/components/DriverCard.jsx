@@ -26,6 +26,7 @@ import {
   Heading,
   Progress,
   Stack,
+  SimpleGrid,
 } from '@chakra-ui/react';
 import {
   FaPhone,
@@ -65,7 +66,7 @@ export default function DriverCard({ driver, onSuspend, onActivate }) {
   const isSuspended = driver.suspended || false;
   const isOnline = driver.online || false;
   const rating = driver.rating || 0;
-  const totalRides = driver.total_rides || 0;
+  const totalRides = driver.total_rides_completed || 0;
   const totalEarnings = driver.total_earnings || 0;
   const completedRides = driver.completed_rides || 0;
   
@@ -173,6 +174,9 @@ export default function DriverCard({ driver, onSuspend, onActivate }) {
   };
 
   const getRatingStars = () => {
+    // If rating is 0, don't show stars
+    if (rating === 0) return null;
+    
     const stars = [];
     const fullStars = Math.floor(rating);
     const hasHalfStar = rating % 1 >= 0.5;
@@ -286,12 +290,18 @@ export default function DriverCard({ driver, onSuspend, onActivate }) {
                 {getStatusText()}
               </Badge>
               
-              <HStack spacing={1}>
-                {getRatingStars()}
-                <Text fontSize="sm" fontWeight="semibold" color="gray.700" ml={1}>
-                  {rating.toFixed(1)}
+              {rating > 0 ? (
+                <HStack spacing={1}>
+                  {getRatingStars()}
+                  <Text fontSize="sm" fontWeight="semibold" color="gray.700" ml={1}>
+                    {rating.toFixed(1)}
+                  </Text>
+                </HStack>
+              ) : (
+                <Text fontSize="sm" color="gray.500" fontWeight="medium">
+                  No ratings yet
                 </Text>
-              </HStack>
+              )}
             </Flex>
           </Box>
         </Flex>

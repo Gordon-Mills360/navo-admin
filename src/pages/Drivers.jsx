@@ -31,6 +31,7 @@ import {
   IconButton,
 } from '@chakra-ui/react';
 import { supabase } from '../services/supabase';
+import { supabaseAdmin } from '../services/supabase'; // Added admin client import
 import DriverCard from '../components/DriverCard';
 import DriverApprovalCard from '../components/DriverApprovalCard';
 import { FaSearch, FaSyncAlt, FaFilter } from 'react-icons/fa';
@@ -80,7 +81,11 @@ export default function Drivers() {
             phone,
             created_at,
             is_active,
-            account_status
+            account_status,
+            approved_at,
+            rejected_at,
+            rejection_reason,
+            email_verified
           ),
           vehicle:driver_vehicles (*)
         `)
@@ -103,16 +108,17 @@ export default function Drivers() {
           phone: driver.profile?.phone || '',
           created_at: driver.created_at,
           is_active: driver.profile?.is_active || false,
-          account_status: driver.profile?.account_status || 'pending', // Changed from is_driver_approved to account_status
-          approved_at: driver.approved_at,
+          account_status: driver.profile?.account_status || 'pending',
+          approved_at: driver.profile?.approved_at || driver.approved_at,
           rejected: driver.rejected || false,
-          rejection_reason: driver.rejection_reason,
+          rejected_at: driver.profile?.rejected_at,
+          rejection_reason: driver.profile?.rejection_reason || driver.rejection_reason,
           suspended: driver.suspended || false,
           suspension_reason: driver.suspension_reason,
           suspended_at: driver.suspended_at,
           online: driver.online || false,
           last_active: driver.last_active,
-          total_rides: driver.total_rides || 0,
+          total_rides: driver.total_rides_completed || 0,
           total_earnings: driver.total_earnings || 0,
           rating: driver.rating || 0,
           vehicle: driver.vehicle || null,
@@ -121,7 +127,10 @@ export default function Drivers() {
             license: driver.license_url,
             vehicle_registration: driver.vehicle_registration_url,
             insurance: driver.insurance_url
-          }
+          },
+          reviewed_at: driver.reviewed_at,
+          reviewed_by: driver.reviewed_by,
+          email_verified: driver.profile?.email_verified || false
         }));
         
         setDrivers(formattedDrivers);
@@ -173,8 +182,9 @@ export default function Drivers() {
           
           return {
             ...driver,
+            user_id: driver.id,
             full_name: driver.full_name || 'Unknown',
-            account_status: driver.account_status || 'pending', // Changed from is_driver_approved to account_status
+            account_status: driver.account_status || 'pending',
             suspended: driverData?.suspended || false,
             suspension_reason: driverData?.suspension_reason,
             online: driverData?.online || false,
@@ -187,7 +197,10 @@ export default function Drivers() {
               license: driverData.license_url,
               vehicle_registration: driverData.vehicle_registration_url,
               insurance: driverData.insurance_url
-            } : null
+            } : null,
+            reviewed_at: driverData?.reviewed_at,
+            reviewed_by: driverData?.reviewed_by,
+            email_verified: driver.email_verified || false
           };
         })
       );
@@ -224,7 +237,7 @@ export default function Drivers() {
     fetchDrivers();
     
     // Set up real-time subscription for driver changes
-    const channel = supabase
+    const driversChannel = supabase
       .channel('drivers_changes')
       .on(
         'postgres_changes',
@@ -239,90 +252,182 @@ export default function Drivers() {
       )
       .subscribe();
 
+    // Subscribe to profile changes for driver status - ADDED REAL-TIME PROFILE UPDATES
+    const profileChannel = supabase
+      .channel('profiles_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: 'role=eq.driver'
+        },
+        (payload) => {
+          console.log('Profile updated:', payload.new);
+          // Update specific driver in state
+          setDrivers(prevDrivers =>
+            prevDrivers.map(driver =>
+              driver.id === payload.new.id || driver.user_id === payload.new.id
+                ? { 
+                    ...driver, 
+                    account_status: payload.new.account_status,
+                    is_active: payload.new.is_active,
+                    email_verified: payload.new.email_verified,
+                    approved_at: payload.new.approved_at,
+                    rejected_at: payload.new.rejected_at,
+                    rejection_reason: payload.new.rejection_reason,
+                    full_name: payload.new.full_name || driver.full_name,
+                    email: payload.new.email || driver.email,
+                    phone: payload.new.phone || driver.phone
+                  }
+                : driver
+            )
+          );
+          
+          // Recalculate stats after profile update
+          setDrivers(prev => {
+            const updatedList = prev.map(driver =>
+              driver.id === payload.new.id || driver.user_id === payload.new.id
+                ? { 
+                    ...driver, 
+                    account_status: payload.new.account_status,
+                    is_active: payload.new.is_active,
+                    email_verified: payload.new.email_verified,
+                    approved_at: payload.new.approved_at,
+                    rejected_at: payload.new.rejected_at,
+                    rejection_reason: payload.new.rejection_reason
+                  }
+                : driver
+            );
+            calculateStats(updatedList);
+            return updatedList;
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(driversChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, []);
 
-  // Approve a driver
+  // Approve a driver - UPDATED VERSION
   const approveDriver = async (driverId) => {
     try {
-      // First, check if drivers table exists
-      const { data: driverExists, error: checkError } = await supabase
-        .from('drivers')
-        .select('id')
-        .eq('user_id', driverId)
-        .single();
+      // Get current admin user
+      const { data: { user } } = await supabase.auth.getUser();
+      const adminId = user?.id;
       
-      if (checkError && checkError.code !== 'PGRST116') {
-        // Driver entry doesn't exist, create it
-        const { error: createError } = await supabase
-          .from('drivers')
-          .insert({
-            user_id: driverId,
-            approved: true,
-            approved_at: new Date().toISOString()
-          });
-        
-        if (createError) throw createError;
-      } else {
-        // Update existing driver entry
-        const { error: updateError } = await supabase
-          .from('drivers')
-          .update({
-            approved: true,
-            approved_at: new Date().toISOString(),
-            rejected: false,
-            rejection_reason: null,
-            suspended: false,
-            suspension_reason: null
-          })
-          .eq('user_id', driverId);
-        
-        if (updateError) throw updateError;
+      if (!adminId) {
+        throw new Error('Admin not authenticated');
       }
-      
-      // Update profile - changed from is_driver_approved to account_status
-      const { error: profileError } = await supabase
+
+      // 1. Update drivers table
+      const { error: driverError } = await supabase
+        .from('drivers')
+        .update({
+          is_active: true,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: adminId,
+          submitted_at: new Date().toISOString()
+        })
+        .eq('user_id', driverId);
+
+      if (driverError) throw driverError;
+
+      // 2. Update profiles table using admin client
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
-          account_status: 'approved', // Changed from is_driver_approved: true
+          account_status: 'approved',
+          approved_at: new Date().toISOString(),
+          rejected_at: null,
+          rejection_reason: null,
           is_active: true
         })
         .eq('id', driverId);
-      
+
       if (profileError) throw profileError;
-      
-      // Update local state
+
+      // 3. Call notification edge function
+      const { error: notifError } = await supabase.functions.invoke('send-driver-notification', {
+        body: {
+          driverId: driverId,
+          action: 'approved',
+          reason: null,
+          adminId: adminId
+        }
+      });
+
+      if (notifError) {
+        console.warn('Notification failed but driver approved:', notifError);
+      }
+
+      // 4. Log the approval action
+      await supabase
+        .from('driver_action_logs')
+        .insert({
+          driver_id: driverId,
+          admin_id: adminId,
+          action: 'approval',
+          reason: 'Driver approved by admin',
+          notes: 'Account fully activated',
+          ip_address: null,
+          user_agent: navigator.userAgent
+        });
+
+      // 5. Update local state IMMEDIATELY
       setDrivers(prevDrivers =>
         prevDrivers.map(driver =>
-          driver.id === driverId || driver.user_id === driverId
+          driver.user_id === driverId || driver.id === driverId
             ? {
                 ...driver,
-                account_status: 'approved', // Changed from is_driver_approved: true
-                suspended: false,
+                account_status: 'approved',
+                is_active: true,
+                approved_at: new Date().toISOString(),
+                reviewed_at: new Date().toISOString(),
+                rejected: false,
                 rejection_reason: null,
-                approved_at: new Date().toISOString()
+                suspended: false,
+                online: true // Auto-set to online when approved
               }
             : driver
         )
       );
+
+      // Recalculate stats
+      setDrivers(prev => {
+        calculateStats(prev);
+        return prev;
+      });
+
+      // 6. Show success with refresh reminder
+      toast({
+        title: '✅ Driver Approved',
+        description: 'Driver has been approved and notified. They can now login.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+        position: 'top-right'
+      });
+
+      // 7. Refresh data after 2 seconds
+      setTimeout(() => {
+        fetchDrivers();
+      }, 2000);
+
+    } catch (error) {
+      console.error('❌ Approval Error:', error);
       
       toast({
-        title: 'Success',
-        description: 'Driver approved successfully!',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      console.error('Error approving driver:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to approve driver. Please try again.',
+        title: '❌ Approval Failed',
+        description: error.message || 'Failed to approve driver. Please try again.',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
+        position: 'top-right'
       });
     }
   };
@@ -334,74 +439,128 @@ export default function Drivers() {
     setRejectModalVisible(true);
   };
 
+  // Confirm reject driver - UPDATED VERSION
   const confirmRejectDriver = async () => {
     if (!selectedDriver) return;
     
     try {
       const driverId = selectedDriver.id || selectedDriver.user_id;
+      const { data: { user } } = await supabase.auth.getUser();
+      const adminId = user?.id;
       
-      // Update drivers table if exists
-      const { data: driverExists } = await supabase
-        .from('drivers')
-        .select('id')
-        .eq('user_id', driverId)
-        .single();
-      
-      if (driverExists) {
-        await supabase
-          .from('drivers')
-          .update({
-            approved: false,
-            rejected: true,
-            rejection_reason: rejectionReason || 'Rejected by admin',
-            rejected_at: new Date().toISOString()
-          })
-          .eq('user_id', driverId);
+      if (!adminId) {
+        throw new Error('Admin not authenticated');
       }
-      
-      // Update profile - changed from is_driver_approved to account_status
-      await supabase
+
+      // 1. Update drivers table
+      const { error: driverError } = await supabase
+        .from('drivers')
+        .update({
+          is_active: false,
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: adminId,
+          notes: rejectionReason || 'Rejected by admin'
+        })
+        .eq('user_id', driverId);
+
+      if (driverError) throw driverError;
+
+      // 2. Update profiles table using admin client
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
-          account_status: 'rejected', // Changed from is_driver_approved: false
+          account_status: 'rejected',
+          rejected_at: new Date().toISOString(),
+          rejection_reason: rejectionReason || 'Rejected by admin',
+          approved_at: null,
           is_active: false
         })
         .eq('id', driverId);
-      
-      // Update local state
+
+      if (profileError) throw profileError;
+
+      // 3. Call notification edge function
+      const { error: notifError } = await supabase.functions.invoke('send-driver-notification', {
+        body: {
+          driverId: driverId,
+          action: 'rejected',
+          reason: rejectionReason || 'Not specified',
+          adminId: adminId
+        }
+      });
+
+      if (notifError) {
+        console.warn('Notification failed but driver rejected:', notifError);
+      }
+
+      // 4. Log the rejection action
+      await supabase
+        .from('driver_action_logs')
+        .insert({
+          driver_id: driverId,
+          admin_id: adminId,
+          action: 'rejection',
+          reason: rejectionReason || 'Rejected by admin',
+          notes: 'Driver account rejected',
+          ip_address: null,
+          user_agent: navigator.userAgent
+        });
+
+      // 5. Update local state IMMEDIATELY
       setDrivers(prevDrivers =>
         prevDrivers.map(driver =>
-          driver.id === driverId || driver.user_id === driverId
+          driver.user_id === driverId || driver.id === driverId
             ? {
                 ...driver,
-                account_status: 'rejected', // Changed from is_driver_approved: false
-                rejected: true,
+                account_status: 'rejected',
+                is_active: false,
+                rejected_at: new Date().toISOString(),
                 rejection_reason: rejectionReason || 'Rejected by admin',
-                rejected_at: new Date().toISOString()
+                reviewed_at: new Date().toISOString(),
+                approved_at: null,
+                suspended: false,
+                online: false
               }
             : driver
         )
       );
-      
+
+      // Recalculate stats
+      setDrivers(prev => {
+        calculateStats(prev);
+        return prev;
+      });
+
+      // 6. Show success
+      toast({
+        title: '✅ Driver Rejected',
+        description: 'Driver has been rejected and notified.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+        position: 'top-right'
+      });
+
+      // 7. Close modal and refresh
       setRejectModalVisible(false);
       setSelectedDriver(null);
       setRejectionReason('');
+
+      // 8. Refresh data after 2 seconds
+      setTimeout(() => {
+        fetchDrivers();
+      }, 2000);
+
+    } catch (error) {
+      console.error('❌ Rejection Error:', error);
       
       toast({
-        title: 'Success',
-        description: 'Driver rejected successfully!',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      console.error('Error rejecting driver:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to reject driver. Please try again.',
+        title: '❌ Rejection Failed',
+        description: error.message || 'Failed to reject driver. Please try again.',
         status: 'error',
-        duration: 3000,
+        duration: 5000,
         isClosable: true,
+        position: 'top-right'
       });
     }
   };
@@ -419,6 +578,10 @@ export default function Drivers() {
     try {
       const driverId = selectedDriver.id || selectedDriver.user_id;
       
+      // Get admin ID for logging
+      const { data: { user } } = await supabase.auth.getUser();
+      const adminId = user?.id;
+
       // Update drivers table if exists
       const { data: driverExists } = await supabase
         .from('drivers')
@@ -432,13 +595,30 @@ export default function Drivers() {
           .update({
             suspended: true,
             suspension_reason: suspensionReason || 'Suspended by admin',
-            suspended_at: new Date().toISOString()
+            suspended_at: new Date().toISOString(),
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: adminId
           })
           .eq('user_id', driverId);
+
+        // Log suspension action
+        if (adminId) {
+          await supabase
+            .from('driver_action_logs')
+            .insert({
+              driver_id: driverId,
+              admin_id: adminId,
+              action: 'suspension',
+              reason: suspensionReason || 'Suspended by admin',
+              notes: 'Driver account suspended',
+              ip_address: null,
+              user_agent: navigator.userAgent
+            });
+        }
       }
       
-      // Update profile
-      await supabase
+      // Update profile using admin client
+      await supabaseAdmin
         .from('profiles')
         .update({
           is_active: false
@@ -454,11 +634,18 @@ export default function Drivers() {
                 suspended: true,
                 suspension_reason: suspensionReason || 'Suspended by admin',
                 suspended_at: new Date().toISOString(),
-                is_active: false
+                is_active: false,
+                reviewed_at: new Date().toISOString()
               }
             : driver
         )
       );
+
+      // Recalculate stats
+      setDrivers(prev => {
+        calculateStats(prev);
+        return prev;
+      });
       
       setSuspendModalVisible(false);
       setSelectedDriver(null);
@@ -486,6 +673,10 @@ export default function Drivers() {
   // Activate a suspended driver
   const activateDriver = async (driverId) => {
     try {
+      // Get admin ID for logging
+      const { data: { user } } = await supabase.auth.getUser();
+      const adminId = user?.id;
+
       // Update drivers table if exists
       const { data: driverExists } = await supabase
         .from('drivers')
@@ -499,13 +690,30 @@ export default function Drivers() {
           .update({
             suspended: false,
             suspension_reason: null,
-            suspended_at: null
+            suspended_at: null,
+            reviewed_at: new Date().toISOString(),
+            reviewed_by: adminId
           })
           .eq('user_id', driverId);
+
+        // Log activation action
+        if (adminId) {
+          await supabase
+            .from('driver_action_logs')
+            .insert({
+              driver_id: driverId,
+              admin_id: adminId,
+              action: 'activation',
+              reason: 'Driver account reactivated',
+              notes: 'Suspension lifted',
+              ip_address: null,
+              user_agent: navigator.userAgent
+            });
+        }
       }
       
-      // Update profile
-      await supabase
+      // Update profile using admin client
+      await supabaseAdmin
         .from('profiles')
         .update({
           is_active: true
@@ -521,11 +729,18 @@ export default function Drivers() {
                 suspended: false,
                 suspension_reason: null,
                 suspended_at: null,
-                is_active: true
+                is_active: true,
+                reviewed_at: new Date().toISOString()
               }
             : driver
         )
       );
+
+      // Recalculate stats
+      setDrivers(prev => {
+        calculateStats(prev);
+        return prev;
+      });
       
       toast({
         title: 'Success',
