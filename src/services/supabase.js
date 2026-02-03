@@ -1,26 +1,54 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Use environment variables - Vite uses import.meta.env
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://qzcyjycqckchhjkfntqb.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6Y3lqeWNxY2tjaGhqa2ZudHFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2MDU1MTcsImV4cCI6MjA4NDE4MTUxN30.kPsTGMpJVqEJsRVVpQRQ2QbVyHC-EjpZ0h5v8dHBnME';
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6Y3lqeWNxY2tjaGhqa2ZudHFiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODYwNTUxNywiZXhwIjoyMDg0MTgxNTE3fQ.8TOX-VtPm7XEoKu7a0_A1jCUFWdNINVBzKPsRdq0B7E';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
 
-// Create Supabase client for web (different from React Native version)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  throw new Error('Missing Supabase environment variables');
+}
+
+// Create Supabase client for admin panel (uses admin service role key for full access)
+export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
-    // For web, we don't need AsyncStorage - uses localStorage by default
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false,
+    storage: localStorage
   },
+  global: {
+    headers: {
+      'x-application-name': 'navo-admin-panel'
+    }
+  }
 });
 
-// Create Admin client for backend/admin operations (bypasses RLS)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+// Create a public client for auth operations only
+export const supabasePublic = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+    storage: localStorage
+  }
 });
 
-window.supabase = supabase;
+// Helper to check if we're connected
+export const checkConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('profiles').select('count', { count: 'exact', head: true });
+    if (error) throw error;
+    return { connected: true };
+  } catch (error) {
+    console.error('Supabase connection error:', error);
+    return { connected: false, error: error.message };
+  }
+};
+
+// Initialize connection check on import
+checkConnection().then(result => {
+  if (!result.connected) {
+    console.warn('Supabase connection issue:', result.error);
+  }
+});
