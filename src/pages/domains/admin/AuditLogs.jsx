@@ -42,7 +42,7 @@ import {
   PhoneIcon, EmailIcon, CalendarIcon, TimeIcon,
   ArrowUpIcon, ArrowDownIcon, ExternalLinkIcon,
   HamburgerIcon, SettingsIcon, StarIcon, FilterIcon,
-  ChevronLeftIcon, ChevronUpIcon, ChevronDownIcon,
+  ChevronLeftIcon, ChevronUpIcon, // REMOVED: ChevronDownIcon (duplicate)
   ArrowBackIcon, ArrowForwardIcon, ArrowRightIcon,
   AttachmentIcon, AtSignIcon, BellIcon, ChatIcon,
   CheckCircleIcon, WarningTwoIcon, NotAllowedIcon,

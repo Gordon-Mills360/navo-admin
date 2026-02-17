@@ -105,7 +105,7 @@ const SuperAdminDashboard = () => {
         supabase.from('passengers').select('id', { count: 'exact', head: true }),
         supabase.from('trips').select('id', { count: 'exact', head: true }),
         supabase.from('payments').select('amount').eq('status', 'completed'),
-        supabase.from('driver_verifications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('driver_documents').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('admins').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('admin_actions_log').select('*').order('created_at', { ascending: false }).limit(10),
         supabase.from('admins').select('*').order('created_at', { ascending: false }).limit(5),

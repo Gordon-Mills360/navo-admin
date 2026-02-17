@@ -1,4 +1,5 @@
 import React from 'react';
+import { keyframes } from '@emotion/react';
 import {
   Box,
   Flex,
@@ -6,7 +7,6 @@ import {
   Text,
   VStack,
   HStack,
-  keyframes,
   useColorModeValue
 } from '@chakra-ui/react';
 import { CheckCircleIcon } from '@chakra-ui/icons';
@@ -206,4 +206,3 @@ export const SkeletonLoader = ({ lines = 3, spacing = 2 }) => (
 );
 
 export default LoadingSpinner;
-export { ButtonSpinner, InlineSpinner, SkeletonLoader };

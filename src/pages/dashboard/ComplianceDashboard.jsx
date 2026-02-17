@@ -87,7 +87,7 @@ const ComplianceDashboard = () => {
         actionsRes,
       ] = await Promise.all([
         supabase
-          .from('driver_verifications')
+          .from('driver_documents')
           .select(`
             *,
             driver:driver_id (full_name, email, phone)
@@ -154,7 +154,7 @@ const ComplianceDashboard = () => {
 
     const subscription = supabase
       .channel('compliance_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_verifications' }, fetchComplianceData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_documents' }, fetchComplianceData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_flags' }, fetchComplianceData)
       .subscribe();
 

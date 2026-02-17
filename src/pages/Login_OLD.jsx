@@ -186,7 +186,7 @@ const Login = () => {
           <CardBody p={8}>
             <form onSubmit={handleLogin}>
               <VStack spacing={6}>
-                {/* Email Field */}
+                {/* Email Field - FIXED */}
                 <FormControl isRequired>
                   <FormLabel 
                     fontSize="sm" 
@@ -197,35 +197,37 @@ const Login = () => {
                     Email Address
                   </FormLabel>
                   <InputGroup>
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@navo.com"
-                      size="lg"
-                      borderRadius="lg"
-                      borderColor="gray.300"
-                      _focus={{
-                        borderColor: 'brand.500',
-                        boxShadow: '0 0 0 1px brand.500',
-                      }}
-                      _hover={{
-                        borderColor: 'gray.400',
-                      }}
-                      pl={12}
-                    />
-                    <Box
-                      position="absolute"
-                      left="4"
-                      top="50%"
-                      transform="translateY(-50%)"
-                    >
-                      <Icon as={FaEnvelope} color="gray.400" boxSize={5} />
+                    <Box position="relative" width="100%">
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="admin@navo.com"
+                        size="lg"
+                        borderRadius="lg"
+                        borderColor="gray.300"
+                        _focus={{
+                          borderColor: 'brand.500',
+                          boxShadow: '0 0 0 1px brand.500',
+                        }}
+                        _hover={{
+                          borderColor: 'gray.400',
+                        }}
+                        pl={12}
+                      />
+                      <Box
+                        position="absolute"
+                        left="4"
+                        top="50%"
+                        transform="translateY(-50%)"
+                      >
+                        <Icon as={FaEnvelope} color="gray.400" boxSize={5} />
+                      </Box>
                     </Box>
                   </InputGroup>
                 </FormControl>
 
-                {/* Password Field */}
+                {/* Password Field - FIXED */}
                 <FormControl isRequired>
                   <FormLabel 
                     fontSize="sm" 
@@ -235,47 +237,57 @@ const Login = () => {
                   >
                     Password
                   </FormLabel>
-                  <InputGroup size="lg">
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      borderRadius="lg"
-                      borderColor="gray.300"
-                      _focus={{
-                        borderColor: 'brand.500',
-                        boxShadow: '0 0 0 1px brand.500',
-                      }}
-                      _hover={{
-                        borderColor: 'gray.400',
-                      }}
-                      pl={12}
-                    />
-                    <Box
-                      position="absolute"
-                      left="4"
-                      top="50%"
-                      transform="translateY(-50%)"
-                    >
-                      <Icon as={FaLock} color="gray.400" boxSize={5} />
-                    </Box>
-                    <InputRightElement width="4.5rem" pr={3}>
-                      <Button
-                        h="1.75rem"
-                        size="sm"
-                        onClick={togglePasswordVisibility}
-                        variant="ghost"
-                        color="gray.500"
-                        _hover={{ color: 'brand.500' }}
+                  <InputGroup>
+                    <Box position="relative" width="100%">
+                      <Input
+                        type={showPassword ? 'text' : 'password'}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        size="lg"
+                        borderRadius="lg"
+                        borderColor="gray.300"
+                        _focus={{
+                          borderColor: 'brand.500',
+                          boxShadow: '0 0 0 1px brand.500',
+                        }}
+                        _hover={{
+                          borderColor: 'gray.400',
+                        }}
+                        pl={12}
+                        pr="4.5rem"
+                      />
+                      <Box
+                        position="absolute"
+                        left="4"
+                        top="50%"
+                        transform="translateY(-50%)"
                       >
-                        {showPassword ? (
-                          <Icon as={FaEyeSlash} boxSize={4} />
-                        ) : (
-                          <Icon as={FaEye} boxSize={4} />
-                        )}
-                      </Button>
-                    </InputRightElement>
+                        <Icon as={FaLock} color="gray.400" boxSize={5} />
+                      </Box>
+                      <Box
+                        position="absolute"
+                        right="0"
+                        top="50%"
+                        transform="translateY(-50%)"
+                        pr={3}
+                      >
+                        <Button
+                          h="1.75rem"
+                          size="sm"
+                          onClick={togglePasswordVisibility}
+                          variant="ghost"
+                          color="gray.500"
+                          _hover={{ color: 'brand.500' }}
+                        >
+                          {showPassword ? (
+                            <Icon as={FaEyeSlash} boxSize={4} />
+                          ) : (
+                            <Icon as={FaEye} boxSize={4} />
+                          )}
+                        </Button>
+                      </Box>
+                    </Box>
                   </InputGroup>
                 </FormControl>
 

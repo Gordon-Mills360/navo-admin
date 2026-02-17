@@ -11,9 +11,7 @@ import {
   useToast,
   InputGroup,
   InputRightElement,
-  Link,
   Flex,
-  Image,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
 import { supabase } from '../services/supabase';
@@ -128,11 +126,12 @@ const Login = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                   />
-                  <InputRightElement>
+                  <InputRightElement width="4.5rem">
                     <Button
-                      variant="ghost"
+                      h="1.75rem"
                       size="sm"
                       onClick={() => setShowPassword(!showPassword)}
+                      variant="ghost"
                     >
                       {showPassword ? <ViewOffIcon /> : <ViewIcon />}
                     </Button>

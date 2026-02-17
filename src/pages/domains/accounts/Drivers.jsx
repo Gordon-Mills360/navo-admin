@@ -92,7 +92,7 @@ const Drivers = () => {
           *,
           profile:profiles!inner (email, phone, avatar_url, created_at),
           vehicle:vehicles (model, color, license_plate, year),
-          verifications:driver_verifications (document_type, status)
+          verifications:driver_documents (document_type, status)
         `)
         .order('created_at', { ascending: false });
 

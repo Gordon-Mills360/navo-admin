@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usePermission } from '../contexts/PermissionContext';
+import { usePermissions } from '../contexts/PermissionContext';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
 
 // Import all route configurations
@@ -156,6 +156,20 @@ export const ProtectedRoute = ({
   }
   
   return children;
+};
+
+/**
+ * Alias for ProtectedRoute with resource/action syntax
+ * (Added to fix the import issue in AppRoutes.jsx)
+ */
+export const PermissionGuard = ({ children, resource, action }) => {
+  const requiredPermissions = resource && action ? [`${resource}.${action}`] : [];
+  
+  return (
+    <ProtectedRoute requiredPermissions={requiredPermissions}>
+      {children}
+    </ProtectedRoute>
+  );
 };
 
 /**

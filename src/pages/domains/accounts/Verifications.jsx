@@ -84,7 +84,7 @@ const Verifications = () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('driver_verifications')
+        .from('driver_documents')
         .select(`
           *,
           driver:driver_id (
@@ -114,7 +114,7 @@ const Verifications = () => {
     
     const subscription = supabase
       .channel('verifications_updates')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_verifications' }, fetchVerifications)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_documents' }, fetchVerifications)
       .subscribe();
 
     return () => {

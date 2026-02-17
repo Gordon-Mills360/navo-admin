@@ -1,10 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ChakraProvider } from '@chakra-ui/react';
-import theme from './theme'; // ← Import our custom theme
+import theme from './theme';
 import './index.css';
 import App from './App.jsx';
-import { SessionProvider } from "./contexts/SessionContext.js";
+// REMOVE: import { SessionProvider } from "./contexts/SessionContext.js";
 
 // Get the root element
 const rootElement = document.getElementById('root');
@@ -18,10 +18,9 @@ const root = ReactDOM.createRoot(rootElement);
 
 root.render(
   <React.StrictMode>
-    <SessionProvider>
-      <ChakraProvider theme={theme}> {/* ← Add theme prop here */}
-        <App />
-      </ChakraProvider>
-    </SessionProvider>
+    {/* REMOVE SessionProvider from here */}
+    <ChakraProvider theme={theme}>
+      <App />
+    </ChakraProvider>
   </React.StrictMode>
 );

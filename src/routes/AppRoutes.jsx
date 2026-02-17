@@ -1,12 +1,12 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { usePermission } from '../contexts/PermissionContext';
+import { usePermissions } from '../contexts/PermissionContext';
 
 // Layout
 import Layout from '../components/layout/Layout';
 import LoadingSpinner from '../components/shared/LoadingSpinner';
-import PermissionGuard from '../components/auth/PermissionGuard';
+import { PermissionGuard } from "./PermissionRoutes";
 
 // Auth pages
 const Login = lazy(() => import('../pages/auth/Login'));
@@ -111,7 +111,7 @@ const PrivateRoute = ({ children }) => {
 // Role-based route wrapper
 const RoleRoute = ({ children, roles = [] }) => {
   const { user } = useAuth();
-  const { hasRole } = usePermission();
+  const { hasRole } = usePermissions();
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -127,7 +127,7 @@ const RoleRoute = ({ children, roles = [] }) => {
 // Permission-based route wrapper
 const PermissionRoute = ({ children, resource, action }) => {
   const { user } = useAuth();
-  const { hasPermission } = usePermission();
+  const { hasPermission } = usePermissions();
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -760,4 +760,3 @@ export const getDefaultRoute = (userRole) => {
 };
 
 export default AppRoutes;
-export { routeConfig, getFilteredRoutes, getNavigationItems, getDefaultRoute };

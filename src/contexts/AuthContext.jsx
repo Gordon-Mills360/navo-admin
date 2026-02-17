@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useToast } from '@chakra-ui/react';
-import { supabase, supabasePublic } from '../services/supabase';
-import { ADMIN_ROLES } from '../utils/constants';
+import { supabase } from '../services/supabase';
 
 const AuthContext = createContext();
 
@@ -19,158 +18,193 @@ export const AuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const toast = useToast();
 
+  // Function to fetch admin profile from database
+  const fetchAdminProfile = async (userId) => {
+    try {
+      const { data: adminProfile, error } = await supabase
+        .from('admins')
+        .select('id, email, role, status, created_at')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching admin profile:', error);
+        return null;
+      }
+
+      // Check if admin is active
+      if (adminProfile.status !== 'active') {
+        console.warn(`Admin ${adminProfile.email} is not active (status: ${adminProfile.status})`);
+        return null;
+      }
+
+      return adminProfile;
+    } catch (error) {
+      console.error('Exception in fetchAdminProfile:', error);
+      return null;
+    }
+  };
+
   // Check for existing session on mount
   useEffect(() => {
+    let mounted = true;
+    
     const initializeAuth = async () => {
       try {
-        // Check if we have an existing session
+        // Get current session
         const { data: { session: existingSession } } = await supabase.auth.getSession();
         
-        if (existingSession) {
-          setSession(existingSession);
-          // Fetch admin data
-          await fetchAdminData(existingSession.user.id);
+        if (existingSession?.user?.id) {
+          if (mounted) {
+            setSession(existingSession);
+            
+            // Fetch admin profile from database
+            const adminProfile = await fetchAdminProfile(existingSession.user.id);
+            
+            if (adminProfile) {
+              // Use the actual role from database
+              const adminObj = {
+                id: adminProfile.id,
+                email: adminProfile.email,
+                role: adminProfile.role, // THIS IS CRITICAL - use DB role
+                status: adminProfile.status,
+                createdAt: adminProfile.created_at
+              };
+              setAdmin(adminObj);
+              console.log('Admin initialized with role:', adminProfile.role);
+            } else {
+              // Not in admins table or inactive - sign out
+              console.log('User not found in admins table or inactive');
+              await supabase.auth.signOut();
+              setAdmin(null);
+            }
+          }
         } else {
-          setLoading(false);
+          if (mounted) {
+            setSession(null);
+            setAdmin(null);
+          }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        setLoading(false);
+        if (mounted) {
+          setSession(null);
+          setAdmin(null);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
-    // Listen for auth changes
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
+        if (!mounted) return;
+
         setSession(newSession);
-        if (newSession) {
-          await fetchAdminData(newSession.user.id);
+
+        if (newSession?.user?.id) {
+          // Fetch admin profile from database
+          const adminProfile = await fetchAdminProfile(newSession.user.id);
+          
+          if (adminProfile) {
+            // Use the actual role from database
+            const adminObj = {
+              id: adminProfile.id,
+              email: adminProfile.email,
+              role: adminProfile.role, // THIS IS CRITICAL - use DB role
+              status: adminProfile.status,
+              createdAt: adminProfile.created_at
+            };
+            setAdmin(adminObj);
+            console.log('Auth state changed, admin role:', adminProfile.role);
+          } else {
+            // Not in admins table or inactive
+            console.log('User not authorized or inactive');
+            await supabase.auth.signOut();
+            setAdmin(null);
+          }
         } else {
           setAdmin(null);
-          setLoading(false);
         }
       }
     );
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchAdminData = async (userId) => {
-    try {
-      setLoading(true);
-      
-      // First check if user exists in admins table
-      const { data: adminData, error: adminError } = await supabase
-        .from('admins')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (adminError) {
-        // If not in admins table, check profiles table
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (profileError || !profileData) {
-          throw new Error('User not authorized as admin');
-        }
-
-        // Check if profile has admin role
-        if (!profileData.role || !profileData.role.includes('ADMIN')) {
-          throw new Error('User does not have admin privileges');
-        }
-
-        // Create admin object from profile
-        const adminObj = {
-          id: profileData.id,
-          email: profileData.email,
-          name: profileData.full_name || profileData.email,
-          role: profileData.role || ADMIN_ROLES.VIEW_ONLY,
-          status: profileData.status || 'active',
-          avatar_url: profileData.avatar_url,
-          created_at: profileData.created_at,
-          last_login_at: profileData.last_login_at,
-        };
-
-        setAdmin(adminObj);
-        updateLastLogin(profileData.id);
-      } else {
-        // Found in admins table
-        setAdmin(adminData);
-        updateLastLogin(adminData.id);
-      }
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Error fetching admin data:', error);
-      toast({
-        title: 'Authentication Error',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      await supabase.auth.signOut();
-      setLoading(false);
-    }
-  };
-
-  const updateLastLogin = async (adminId) => {
-    try {
-      await supabase
-        .from('admins')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', adminId);
-    } catch (error) {
-      console.error('Error updating last login:', error);
-    }
-  };
+    // Cleanup
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
+  }, [toast]);
 
   const login = async (email, password) => {
     try {
       setLoading(true);
       
-      // Sign in with email and password
+      // Step 1: Authenticate with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: email.trim(),
+        password: password.trim(),
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        if (authError.message.includes('Invalid login credentials')) {
+          throw new Error('Invalid email or password');
+        }
+        if (authError.message.includes('Email not confirmed')) {
+          throw new Error('Please verify your email address');
+        }
+        throw authError;
+      }
 
-      if (!authData.user) {
+      if (!authData?.user?.id) {
         throw new Error('Login failed - no user data returned');
       }
 
-      // Fetch admin data
-      await fetchAdminData(authData.user.id);
+      // Step 2: Fetch admin profile from database
+      const adminProfile = await fetchAdminProfile(authData.user.id);
+      
+      if (!adminProfile) {
+        // User authenticated but not in admins table or inactive
+        await supabase.auth.signOut();
+        throw new Error('Access denied. You are not authorized as an admin.');
+      }
+
+      // Step 3: Set admin with actual role from database
+      const adminObj = {
+        id: adminProfile.id,
+        email: adminProfile.email,
+        role: adminProfile.role, // ACTUAL ROLE FROM DATABASE
+        status: adminProfile.status,
+        createdAt: adminProfile.created_at
+      };
+      setAdmin(adminObj);
 
       toast({
         title: 'Login successful',
-        description: `Welcome back!`,
+        description: `Welcome ${adminProfile.role.replace('_', ' ')}`,
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
 
-      return { success: true };
+      return { success: true, role: adminProfile.role };
     } catch (error) {
       console.error('Login error:', error);
       
-      let errorMessage = error.message;
-      if (error.message.includes('Invalid login credentials')) {
-        errorMessage = 'Invalid email or password';
-      } else if (error.message.includes('Email not confirmed')) {
-        errorMessage = 'Please verify your email before logging in';
-      }
+      // Clear any partial auth state
+      setAdmin(null);
+      
+      const errorMessage = error.message.includes('not authorized')
+        ? 'Access denied. You are not authorized to access the admin panel.'
+        : error.message;
 
       toast({
-        title: 'Login failed',
+        title: 'Authentication Error',
         description: errorMessage,
         status: 'error',
         duration: 5000,
@@ -186,8 +220,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await supabase.auth.signOut();
       
       setAdmin(null);
       setSession(null);
@@ -199,15 +232,12 @@ export const AuthProvider = ({ children }) => {
         duration: 3000,
         isClosable: true,
       });
+      
     } catch (error) {
       console.error('Logout error:', error);
-      toast({
-        title: 'Logout failed',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+      // Still clear local state
+      setAdmin(null);
+      setSession(null);
     } finally {
       setLoading(false);
     }
@@ -215,7 +245,7 @@ export const AuthProvider = ({ children }) => {
 
   const resetPassword = async (email) => {
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/reset-password`,
       });
 
@@ -232,21 +262,27 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Password reset error:', error);
+      
+      const errorMessage = error.message.includes('rate limit')
+        ? 'Too many attempts. Please try again later.'
+        : errorMessage;
+
       toast({
         title: 'Reset failed',
-        description: error.message,
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
-      return { success: false, error: error.message };
+      
+      return { success: false, error: errorMessage };
     }
   };
 
   const updatePassword = async (newPassword) => {
     try {
       const { error } = await supabase.auth.updateUser({
-        password: newPassword,
+        password: newPassword.trim(),
       });
 
       if (error) throw error;
@@ -262,15 +298,23 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Password update error:', error);
+      
       toast({
         title: 'Update failed',
-        description: error.message,
+        description: error.message || 'Failed to update password',
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
+      
       return { success: false, error: error.message };
     }
+  };
+
+  // Helper function to check specific roles
+  const hasRole = (requiredRole) => {
+    if (!admin) return false;
+    return admin.role === requiredRole;
   };
 
   const value = {
@@ -281,8 +325,16 @@ export const AuthProvider = ({ children }) => {
     logout,
     resetPassword,
     updatePassword,
+    hasRole,
     isAuthenticated: !!admin,
-    isSuperAdmin: admin?.role === ADMIN_ROLES.SUPER_ADMIN,
+    isSuperAdmin: admin?.role === 'super_admin',
+    isFinanceAdmin: admin?.role === 'finance_admin',
+    isOperationsAdmin: admin?.role === 'operations_admin',
+    isSupportAdmin: admin?.role === 'support_admin',
+    isAnalyticsAdmin: admin?.role === 'analytics_admin',
+    isComplianceAdmin: admin?.role === 'compliance_admin',
+    // Backward compatibility
+    isAdmin: !!admin,
   };
 
   return (

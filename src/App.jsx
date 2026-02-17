@@ -2,6 +2,7 @@ import React from 'react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { SessionProvider } from './contexts/SessionContext';
 import { PermissionProvider } from './contexts/PermissionContext';
 import { RealTimeProvider } from './contexts/RealTimeContext';
 import { NotificationProvider } from './contexts/NotificationContext';
@@ -14,13 +15,15 @@ function App() {
     <ChakraProvider theme={theme}>
       <Router>
         <AuthProvider>
-          <PermissionProvider>
-            <RealTimeProvider>
-              <NotificationProvider>
-                <AppRoutes />
-              </NotificationProvider>
-            </RealTimeProvider>
-          </PermissionProvider>
+          <SessionProvider>
+            <PermissionProvider>
+              <RealTimeProvider>
+                <NotificationProvider>
+                  <AppRoutes />
+                </NotificationProvider>
+              </RealTimeProvider>
+            </PermissionProvider>
+          </SessionProvider>
         </AuthProvider>
       </Router>
     </ChakraProvider>

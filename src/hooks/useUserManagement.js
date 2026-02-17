@@ -15,7 +15,7 @@ export const useUserManagement = () => {
     try {
       // Update driver verification status
       const { error: verificationError } = await supabase
-        .from('driver_verifications')
+        .from('driver_documents')
         .update({
           status: 'verified',
           verified_at: new Date().toISOString(),
@@ -76,7 +76,7 @@ export const useUserManagement = () => {
     try {
       // Update driver verification status
       const { error: verificationError } = await supabase
-        .from('driver_verifications')
+        .from('driver_documents')
         .update({
           status: 'rejected',
           rejection_reason: reason,
